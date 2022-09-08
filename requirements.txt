@@ -1,0 +1,5 @@
+asyncmy
+databases==0.5.5
+fastapi[all]
+python-dotenv
+uvicorn[standard]
