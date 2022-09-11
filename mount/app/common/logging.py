@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger()
 
 
 def init_logging(log_level: str | int) -> None:

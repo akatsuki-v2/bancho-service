@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# handle int & kill signals as non-errors until final "exec" runs
+trap "{ exit 0; }" TERM INT
+
 if [ -z "$APP_COMPONENT" ]; then
   echo "Please set APP_COMPONENT"
   exit 1
@@ -10,11 +13,7 @@ cd /srv/root
 
 case $APP_COMPONENT in
   "api")
-    /scripts/run-api.sh
-    ;;
-
-  "tests")
-    /scripts/run-tests.sh
+    exec /scripts/run-api.sh
     ;;
 
   *)
