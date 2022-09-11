@@ -13,12 +13,10 @@ pull: # pull all containers
 
 run-bg: # run all containers in the background
 	@docker-compose up -d \
-		postgres \
 		bancho-service
 
 run: # run all containers in the foreground
 	@docker-compose up \
-		postgres \
 		bancho-service
 
 logs: # attach to the containers live to view their logs
