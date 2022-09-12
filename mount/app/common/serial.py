@@ -301,7 +301,7 @@ def write_privileges_packet(privileges: int) -> bytes:
 
 def write_channel_info_packet(channel: str, topic: str, player_count: int) -> bytes:
     data = pack_string(channel) + pack_string(topic) + \
-        pack_uint32(player_count)
+        pack_uint16(player_count)
     return write_packet(ServerPackets.CHANNEL_INFO, data)
 
 
