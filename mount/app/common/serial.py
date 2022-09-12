@@ -268,20 +268,23 @@ class ServerPackets:
     SWITCH_TOURNAMENT_SERVER = 107
 
 
-RESERVED_BYTE = b'\x00'
+RESERVED_BYTE = b"\x00"
 
 
 def write_packet(packet_id: int, data: bytes = b"") -> bytes:
     return pack_uint16(packet_id) + RESERVED_BYTE + pack_uint32(len(data)) + data
 
 
+# osu! packets
+
 def write_account_id_packet(id: int) -> bytes:
     data = pack_int32(id)
     return write_packet(ServerPackets.ACCOUNT_ID, data)
 
 
-def write_send_message_packet(channel: str, sender: str, message: str) -> bytes:
-    data = pack_string(channel) + pack_string(sender) + pack_string(message)
+def write_send_message_packet(sender: str, message: str, recipient: str, sender_id: int) -> bytes:
+    data = pack_string(sender) + pack_string(message) + \
+        pack_string(recipient) + pack_int32(sender_id)
     return write_packet(ServerPackets.SEND_MESSAGE, data)
 
 
