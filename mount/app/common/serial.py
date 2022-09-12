@@ -324,3 +324,54 @@ def write_friends_list_packet(friends: list[int]) -> bytes:
 def write_silence_end_packet(remaining_sec: int) -> bytes:
     data = pack_int32(remaining_sec)
     return write_packet(ServerPackets.SILENCE_END, data)
+
+
+def write_user_stats_packet(user_id: int,
+                            action: int,
+                            info_text: str,
+                            map_md5: str,
+                            mods: int,
+                            mode: int,
+                            map_id: int,
+                            ranked_score: int,
+                            accuracy: float,
+                            plays: int,
+                            total_score: int,
+                            global_rank: int,
+                            pp: int) -> bytes:
+    data = (
+        pack_int32(user_id)
+        + pack_uint8(action)
+        + pack_string(info_text)
+        + pack_string(map_md5)
+        + pack_int32(mods)
+        + pack_uint8(mode)
+        + pack_int32(map_id)
+        + pack_int64(ranked_score)
+        + pack_float(accuracy)
+        + pack_int32(plays)
+        + pack_int64(total_score)
+        + pack_int32(global_rank)
+        + pack_int16(pp))
+    return write_packet(ServerPackets.USER_STATS, data)
+
+
+def write_user_presence_packet(user_id: int,
+                               username: str,
+                               utc_offset: int,
+                               country_code: int,
+                               bancho_privileges: int,
+                               mode: int,
+                               latitude: float,
+                               longitude: float,
+                               global_rank: int) -> bytes:
+    data = (
+        pack_int32(user_id)
+        + pack_string(username)
+        + pack_uint8(utc_offset + 24)
+        + pack_uint8(country_code)
+        + pack_uint8(bancho_privileges | (mode << 5))
+        + pack_float(latitude)
+        + pack_float(longitude)
+        + pack_int32(global_rank))
+    return write_packet(ServerPackets.USER_PRESENCE, data)
