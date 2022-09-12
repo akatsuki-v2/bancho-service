@@ -153,6 +153,6 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     return response
 
 
-@router.post("/v1/")
+@router.post("/v1/bancho")
 async def bancho(request: Request):
     return b""
