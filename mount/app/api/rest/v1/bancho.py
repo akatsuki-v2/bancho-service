@@ -71,7 +71,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     response = await forward_request(ctx,
                                      method="POST",
-                                     url="http://user-accounts-service/v1/sessions",
+                                     url="http://users-service/v1/sessions",
                                      json={"username": login_data["username"],
                                            "password": login_data["password_md5"],
                                            "user_agent": "osu!"})
