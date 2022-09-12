@@ -67,6 +67,8 @@ def pack_string(value: str) -> bytes:
     bytes_remaining = len(encoded)
 
     ret = bytearray()
+    ret += b"\x0b"
+
     while bytes_remaining > 0:
         ret.append(bytes_remaining & 0x7F)
         bytes_remaining >>= 7
