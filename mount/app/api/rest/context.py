@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.common.context import Context
 from app.services.http_client import ServiceHTTPClient
 from fastapi import Request
