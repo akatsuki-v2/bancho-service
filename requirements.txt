@@ -1,4 +1,5 @@
 fastapi[all]
+httpx
 python-dotenv
 structlog
 uvicorn[standard]
