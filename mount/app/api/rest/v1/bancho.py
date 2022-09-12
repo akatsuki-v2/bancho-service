@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import struct
 from typing import TypedDict
 
 from app.api.rest.context import RequestContext
+from app.api.rest.gateway import forward_request
 from app.common import serial
 from fastapi import APIRouter
 from fastapi import Depends
@@ -69,8 +69,6 @@ def parse_login_data(data: bytes) -> LoginData:
 async def login(request: Request, ctx: RequestContext = Depends()):
     login_data = parse_login_data(await request.body())
 
-    from app.api.rest.gateway import forward_request
-
     response = await forward_request(ctx,
                                      method="POST",
                                      url="http://user-accounts-service/v1/sessions",
@@ -107,18 +105,45 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_account_id_packet(account_id)
     response_buffer += serial.write_privileges_packet(0)  # TODO
 
-    # TODO: info packet for each channel
+    # TODO: realify
+    response_buffer += serial.write_channel_info_packet(channel="#osu",
+                                                        topic="yay",
+                                                        player_count=1)
 
     response_buffer += serial.write_channel_info_end_packet()
 
+    # TODO: why doesn't this work?
     response_buffer += serial.write_main_menu_icon_packet(
-        icon_url="https://a.ppy.sh/1",
+        icon_url="https://akatsuki.pw/static/images/logos/logo.png",
         onclick_url="https://akatsuki.pw",
     )
     response_buffer += serial.write_friends_list_packet([])  # TODO
 
-    # TODO: our session presence
-    # TODO: our account stats
+    # TODO: realize
+    response_buffer += serial.write_user_presence_packet(
+        account_id,
+        username=login_data["username"],
+        utc_offset=login_data["utc_offset"],
+        country_code=38,  # canada?
+        bancho_privileges=32,
+        mode=0,
+        latitude=43.0,
+        longitude=-79.0,
+        global_rank=32)
+    response_buffer += serial.write_user_stats_packet(
+        account_id,
+        action=3,  # TODO: enum
+        info_text="yay",
+        map_md5="",
+        mods=0,
+        mode=0,
+        map_id=0,
+        ranked_score=12345,
+        accuracy=0.67,
+        plays=123,
+        total_score=65423,
+        global_rank=32,
+        pp=6969)
 
     # TODO: other sessions presences & account stats
 
