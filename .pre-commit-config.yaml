@@ -13,7 +13,7 @@ repos:
     rev: v3.8.2
     hooks:
     -   id: reorder-python-imports
-        args: [--py37-plus, --add-import, 'from __future__ import annotations']
+        args: [--py37-plus]
 -   repo: https://github.com/pre-commit/mirrors-autopep8
     rev: v1.7.0
     hooks:
