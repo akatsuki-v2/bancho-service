@@ -1,6 +1,8 @@
 from app.common.context import Context
 from app.services.http_client import ServiceResponse
 
+SERVICE_URL = "http://users-service"
+
 
 class UsersClient:
     def __init__(self, ctx: Context) -> None:
@@ -12,7 +14,7 @@ class UsersClient:
                       email_address: str, country: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
-            url="http://users-service/v1/accounts",
+            url=f"{SERVICE_URL}/v1/accounts",
             json={
                 "username": username,
                 "password": password_md5,
@@ -25,14 +27,14 @@ class UsersClient:
     async def get_accounts(self) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url=f"http://users-service/v1/accounts",
+            url=f"{SERVICE_URL}/v1/accounts",
         )
         return response
 
     async def get_account(self, account_id: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url=f"http://users-service/v1/accounts/{account_id}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
         return response
 
@@ -41,7 +43,7 @@ class UsersClient:
                                      ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
-            url=f"http://users-service/v1/accounts/{account_id}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}",
             json=json,
         )
         return response
@@ -49,7 +51,7 @@ class UsersClient:
     async def delete_account(self, account_id: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
-            url=f"http://users-service/v1/accounts/{account_id}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
         return response
 
@@ -74,7 +76,7 @@ class UsersClient:
                            a_count: int):
         response = await self.ctx.http_client.service_call(
             method="POST",
-            url=f"http://users-service/v1/accounts/{account_id}/stats",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats",
             json={
                 "game_mode": game_mode,
                 "total_score": total_score,
@@ -98,14 +100,14 @@ class UsersClient:
     async def get_stats(self, account_id: int, game_mode: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url=f"http://users-service/v1/accounts/{account_id}/stats/{game_mode}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
         return response
 
     async def get_all_account_stats(self, account_id: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url=f"http://users-service/v1/accounts/{account_id}/stats",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats",
         )
         return response
 
@@ -114,7 +116,7 @@ class UsersClient:
                                    ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
-            url=f"http://users-service/v1/accounts/{account_id}/stats/{game_mode}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
             json=json,
         )
         return response
@@ -122,7 +124,7 @@ class UsersClient:
     async def delete_stats(self, account_id: int, game_mode: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
-            url=f"http://users-service/v1/accounts/{account_id}/stats/{game_mode}",
+            url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
         return response
 
@@ -132,7 +134,7 @@ class UsersClient:
                      user_agent: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
-            url="http://users-service/v1/sessions",
+            url=f"{SERVICE_URL}/v1/sessions",
             json={
                 "identifier": identifier,
                 "passphrase": passphrase,
@@ -144,7 +146,7 @@ class UsersClient:
     async def log_out(self, session_id: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
-            url=f"http://users-service/v1/sessions/{session_id}",
+            url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
         return response
 
@@ -153,7 +155,7 @@ class UsersClient:
                                      ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
-            url=f"http://users-service/v1/sessions/{session_id}",
+            url=f"{SERVICE_URL}/v1/sessions/{session_id}",
             json=json,
         )
         return response
@@ -179,7 +181,7 @@ class UsersClient:
                               ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
-            url=f"http://users-service/v1/presences",
+            url=f"{SERVICE_URL}/v1/presences",
             json={
                 "session_id": session_id,
                 "game_mode": game_mode,
@@ -206,14 +208,14 @@ class UsersClient:
     async def get_presence(self, session_id: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url=f"http://users-service/v1/presences/{session_id}",
+            url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
         return response
 
     async def get_all_presences(self) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url="http://users-service/v1/presences",
+            url="{SERVICE_URL}/v1/presences",
         )
         return response
 
@@ -222,7 +224,7 @@ class UsersClient:
                                       ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
-            url=f"http://users-service/v1/presences/{session_id}",
+            url=f"{SERVICE_URL}/v1/presences/{session_id}",
             json=json,
         )
         return response
@@ -230,6 +232,6 @@ class UsersClient:
     async def delete_presence(self, session_id: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
-            url=f"http://users-service/v1/presences/{session_id}",
+            url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
         return response
