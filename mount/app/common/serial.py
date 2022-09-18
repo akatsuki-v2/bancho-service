@@ -48,6 +48,8 @@ def pack_double(value: float) -> bytes:
 # copilot version i might use later
 # def pack_string(value: str) -> bytes:
 #     # uleb128
+#     if not value:
+#         return b"\x00"
 #     buffer = bytearray()
 #     value2 = value.encode('utf-8')
 #     length = len(value2)
@@ -302,9 +304,8 @@ def write_privileges_packet(privileges: int) -> bytes:
     return write_packet(ServerPackets.PRIVILEGES, data)
 
 
-def write_channel_info_packet(channel: str, topic: str, player_count: int) -> bytes:
-    data = pack_string(channel) + pack_string(topic) + \
-        pack_uint16(player_count)
+def write_channel_info_packet(channel: str, topic: str, user_count: int) -> bytes:
+    data = pack_string(channel) + pack_string(topic) + pack_uint16(user_count)
     return write_packet(ServerPackets.CHANNEL_INFO, data)
 
 
@@ -329,7 +330,7 @@ def write_silence_end_packet(remaining_sec: int) -> bytes:
     return write_packet(ServerPackets.SILENCE_END, data)
 
 
-def write_user_stats_packet(user_id: int,
+def write_user_stats_packet(account_id: int,
                             action: int,
                             info_text: str,
                             map_md5: str,
@@ -338,12 +339,12 @@ def write_user_stats_packet(user_id: int,
                             map_id: int,
                             ranked_score: int,
                             accuracy: float,
-                            plays: int,
+                            play_count: int,
                             total_score: int,
                             global_rank: int,
                             pp: int) -> bytes:
     data = (
-        pack_int32(user_id)
+        pack_int32(account_id)
         + pack_uint8(action)
         + pack_string(info_text)
         + pack_string(map_md5)
@@ -352,14 +353,14 @@ def write_user_stats_packet(user_id: int,
         + pack_int32(map_id)
         + pack_int64(ranked_score)
         + pack_float(accuracy)
-        + pack_int32(plays)
+        + pack_int32(play_count)
         + pack_int64(total_score)
         + pack_int32(global_rank)
         + pack_int16(pp))
     return write_packet(ServerPackets.USER_STATS, data)
 
 
-def write_user_presence_packet(user_id: int,
+def write_user_presence_packet(account_id: int,
                                username: str,
                                utc_offset: int,
                                country_code: int,
@@ -369,7 +370,7 @@ def write_user_presence_packet(user_id: int,
                                longitude: float,
                                global_rank: int) -> bytes:
     data = (
-        pack_int32(user_id)
+        pack_int32(account_id)
         + pack_string(username)
         + pack_uint8(utc_offset + 24)
         + pack_uint8(country_code)
