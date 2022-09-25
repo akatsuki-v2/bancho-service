@@ -215,7 +215,7 @@ class UsersClient:
     async def get_all_presences(self) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
-            url="{SERVICE_URL}/v1/presences",
+            url=f"{SERVICE_URL}/v1/presences",
         )
         return response
 

@@ -379,3 +379,8 @@ def write_user_presence_packet(account_id: int,
         + pack_float(longitude)
         + pack_int32(global_rank))
     return write_packet(ServerPackets.USER_PRESENCE, data)
+
+
+def write_notification_packet(message: str) -> bytes:
+    data = pack_string(message)
+    return write_packet(ServerPackets.NOTIFICATION, data)

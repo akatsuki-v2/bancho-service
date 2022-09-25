@@ -6,6 +6,7 @@ from typing import TypedDict
 from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
+from app.services.chat_client import ChatClient
 from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
@@ -72,6 +73,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     login_data = parse_login_data(await request.body())
 
     users_client = UsersClient(ctx)
+    chat_client = ChatClient(ctx)
 
     # create user session
     response = await users_client.log_in(login_data["username"],
@@ -94,28 +96,46 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_account_id_packet(account_id)
     response_buffer += serial.write_privileges_packet(0)  # TODO
 
-    # TODO: fetch from chat-service
-    channels = [
-        {"name": "#announce", "topic": "Announcements", "user_count": 1},
-        {"name": "#osu", "topic": "osu! general discussion", "user_count": 1},
-        {"name": "#lobby", "topic": "The waiting room", "user_count": 1},
-    ]
+    response = await chat_client.get_chats()
+    if response.status_code != 200:
+        logging.error("Failed to fetch chats", session_id=session_id,
+                      status_code=response.status_code, response=response.json)
+        return Response(content=serial.write_account_id_packet(-1),
+                        headers={"cho-token": "no"},
+                        status_code=200)
 
-    for channel in channels:
-        response_buffer += serial.write_channel_info_packet(
-            channel=channel["name"],
-            topic=channel["topic"],
-            user_count=channel["user_count"],
-        )
+    chats: list[dict[str, Any]] = response.json["data"]
+
+    for chat in chats:
+        # TODO: check user has sufficient read_privileges
+        if chat["auto_join"] and chat["name"] != "#lobby":
+            response = await chat_client.get_members(chat["chat_id"])
+            if response.status_code != 200:
+                logging.error("Failed to fetch chats", session_id=session_id,
+                              status_code=response.status_code, response=response.json)
+                return Response(content=serial.write_account_id_packet(-1),
+                                headers={"cho-token": "no"},
+                                status_code=200)
+
+            members: list[dict[str, Any]] = response.json["data"]
+
+            response_buffer += serial.write_channel_info_packet(
+                channel=chat["name"],
+                topic=chat["topic"],
+                user_count=len(members),
+            )
+
+            # TODO: enqueue to other players that we've joined
 
     response_buffer += serial.write_channel_info_end_packet()
 
-    # TODO: unhardcode
     response_buffer += serial.write_main_menu_icon_packet(
+        # TODO: unhardcode these values - probably into an sql table
         icon_url="https://akatsuki.pw/static/images/logos/logo.png",
         onclick_url="https://akatsuki.pw",
     )
     response_buffer += serial.write_friends_list_packet([])  # TODO
+    response_buffer += serial.write_silence_end_packet(0)  # TODO
 
     # TODO: geolocation lookup by ip
 
@@ -234,6 +254,9 @@ async def login(request: Request, ctx: RequestContext = Depends()):
                 latitude=other_presence["latitude"],
                 longitude=other_presence["longitude"],
                 global_rank=global_rank)
+
+    response_buffer += serial.write_notification_packet(
+        message="Welcome to Akatsuki v2!")
 
     response = Response(content=bytes(response_buffer),
                         headers={"cho-token": session_id},
