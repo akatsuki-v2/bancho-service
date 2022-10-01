@@ -6,7 +6,7 @@ await_service()
     local start_ts=$(date +%s)
     while :
     do
-        (echo -n > /dev/tcp/$1/$2) > /dev/null 2>&1
+        (echo -n > /dev/tcp/$1/$2) > /dev/null
         if [[ $? -eq 0 ]]; then
             break
         fi
