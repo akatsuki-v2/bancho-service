@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+from functools import cache
 
 # writing
 
@@ -204,6 +205,14 @@ class ClientPackets:
     TOURNAMENT_LEAVE_MATCH_CHANNEL = 109
 
 
+@cache
+def client_packet_id_to_name(packet_id: int) -> str:
+    id_to_name_map = {v: k for k, v in vars(
+        ClientPackets).items() if isinstance(v, int)}
+
+    return id_to_name_map.get(packet_id, "Unknown")
+
+
 class ServerPackets:
     ACCOUNT_ID = 5
     SEND_MESSAGE = 7
@@ -264,6 +273,14 @@ class ServerPackets:
     RTX = 105  # unused
     MATCH_ABORT = 106
     SWITCH_TOURNAMENT_SERVER = 107
+
+
+@cache
+def server_packet_id_to_name(packet_id: int) -> str:
+    id_to_name_map = {v: k for k, v in vars(
+        ServerPackets).items() if isinstance(v, int)}
+
+    return id_to_name_map.get(packet_id, "Unknown")
 
 
 RESERVED_BYTE = b"\x00"

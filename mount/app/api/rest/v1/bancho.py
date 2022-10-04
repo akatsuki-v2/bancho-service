@@ -6,12 +6,14 @@ from typing import TypedDict
 from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
+from app.events.packets import handle_packet_event
 from app.services.chat_client import ChatClient
 from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Request
 from fastapi import Response
+
 router = APIRouter()
 
 
@@ -266,4 +268,20 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
 @router.post("/v1/bancho")
 async def bancho(request: Request):
-    return b""
+    response_buffer = bytearray()
+
+    # TODO: async for chunk in request.stream()
+    with memoryview(await request.body()) as raw_data:
+        data_reader = serial.Reader(raw_data)
+
+        while not data_reader.stream_consumed:
+            packet_id = data_reader.read_uint16()
+            _ = data_reader.read_uint8()
+            packet_length = data_reader.read_uint32()
+
+            packet_data = data_reader.read_bytes(packet_length)
+
+            packet_response = handle_packet_event(packet_id, packet_data)
+            response_buffer += packet_response
+
+    return bytes(response_buffer)
