@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from app.common.context import Context
 from app.services.http_client import ServiceResponse
 
@@ -143,14 +145,14 @@ class UsersClient:
         )
         return response
 
-    async def log_out(self, session_id: str) -> ServiceResponse:
+    async def log_out(self, session_id: UUID) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
         return response
 
-    async def partial_update_session(self, session_id: str,
+    async def partial_update_session(self, session_id: UUID,
                                      json: dict  # TODO: model?
                                      ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
@@ -162,7 +164,7 @@ class UsersClient:
 
     # presence
 
-    async def create_presence(self, session_id: str, game_mode: int,
+    async def create_presence(self, session_id: UUID, game_mode: int,
                               account_id: int,
                               username: str,
                               country_code: int,
@@ -205,7 +207,7 @@ class UsersClient:
         )
         return response
 
-    async def get_presence(self, session_id: str) -> ServiceResponse:
+    async def get_presence(self, session_id: UUID) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
@@ -219,7 +221,7 @@ class UsersClient:
         )
         return response
 
-    async def partial_update_presence(self, session_id: str,
+    async def partial_update_presence(self, session_id: UUID,
                                       json: dict  # TODO: model?
                                       ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
@@ -229,9 +231,26 @@ class UsersClient:
         )
         return response
 
-    async def delete_presence(self, session_id: str) -> ServiceResponse:
+    async def delete_presence(self, session_id: UUID) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
+        )
+        return response
+
+    # queued packets
+
+    async def enqueue_data(self, session_id: UUID, data: str) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="POST",
+            url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
+            json={"data": data},
+        )
+        return response
+
+    async def deqeue_all_data(self, session_id: UUID) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
         )
         return response

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from typing import TypedDict
+from uuid import UUID
 
 from app.api.rest.context import RequestContext
 from app.common import logging
@@ -11,6 +12,7 @@ from app.services.chat_client import ChatClient
 from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import Header
 from fastapi import Request
 from fastapi import Response
 
@@ -87,7 +89,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
                             status_code=200)
         return response
 
-    session_id: str = response.json["data"]["session_id"]
+    session_id = UUID(response.json["data"]["session_id"])
     account_id: int = response.json["data"]["account_id"]
 
     # TODO: endpoint to submit client hashes
@@ -267,7 +269,9 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
 
 @router.post("/v1/bancho")
-async def bancho(request: Request):
+async def bancho(request: Request,
+                 session_id: UUID = Header(..., alias='osu-token'),
+                 ctx: RequestContext = Depends()):
     response_buffer = bytearray()
 
     # TODO: async for chunk in request.stream()
@@ -283,5 +287,23 @@ async def bancho(request: Request):
 
             packet_response = handle_packet_event(packet_id, packet_data)
             response_buffer += packet_response
+
+    users_client = UsersClient(ctx)
+
+    # fetch any data from the player's packet queue
+    response = await users_client.deqeue_all_data(session_id)
+    if response.status_code != 200:
+        logging.error("Failed to get all presences",
+                      status_code=response.status_code, response=response.json)
+        # TODO: should we send a packet here?
+        # response = Response(content=serial.write_account_id_packet(-1),
+        #                     headers={"cho-token": "no"},
+        #                     status_code=200)
+        response = b""
+        return response
+
+    packet_queue: list[list[int]] = response.json["data"]
+    for chunk in packet_queue:
+        response_buffer.extend(chunk)
 
     return bytes(response_buffer)
