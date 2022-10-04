@@ -84,60 +84,57 @@ def pack_string(value: str) -> bytes:
 # reading
 
 class Reader:
-    def __init__(self, data: bytes):
-        # TODO: memoryview instead of (data, offset)?
-        self.data = data
-        self.offset = 0
+    def __init__(self, data: bytes) -> None:
+        self.remaining_data = data
+
+    @property
+    def stream_consumed(self) -> bool:
+        return not self.remaining_data
+
+    def read_bytes(self, length: int) -> bytes:
+        raw_data = self.remaining_data[:length]
+        self.remaining_data = self.remaining_data[length:]
+        return raw_data
 
     def read_uint8(self) -> int:
-        value = struct.unpack_from('<B', self.data, self.offset)[0]
-        self.offset += 1
-        return value
+        raw_data = self.read_bytes(1)
+        return struct.unpack('<B', raw_data)[0]
 
     def read_uint16(self) -> int:
-        value = struct.unpack_from('<H', self.data, self.offset)[0]
-        self.offset += 2
-        return value
+        raw_data = self.read_bytes(2)
+        return struct.unpack('<H', raw_data)[0]
 
     def read_uint32(self) -> int:
-        value = struct.unpack_from('<I', self.data, self.offset)[0]
-        self.offset += 4
-        return value
+        raw_data = self.read_bytes(4)
+        return struct.unpack('<I', raw_data)[0]
 
     def read_uint64(self) -> int:
-        value = struct.unpack_from('<Q', self.data, self.offset)[0]
-        self.offset += 8
-        return value
+        raw_data = self.read_bytes(8)
+        return struct.unpack('<Q', raw_data)[0]
 
     def read_int8(self) -> int:
-        value = struct.unpack_from('<b', self.data, self.offset)[0]
-        self.offset += 1
-        return value
+        raw_data = self.read_bytes(1)
+        return struct.unpack('<b', raw_data)[0]
 
     def read_int16(self) -> int:
-        value = struct.unpack_from('<h', self.data, self.offset)[0]
-        self.offset += 2
-        return value
+        raw_data = self.read_bytes(2)
+        return struct.unpack('<h', raw_data)[0]
 
     def read_int32(self) -> int:
-        value = struct.unpack_from('<i', self.data, self.offset)[0]
-        self.offset += 4
-        return value
+        raw_data = self.read_bytes(4)
+        return struct.unpack('<i', raw_data)[0]
 
     def read_int64(self) -> int:
-        value = struct.unpack_from('<q', self.data, self.offset)[0]
-        self.offset += 8
-        return value
+        raw_data = self.read_bytes(8)
+        return struct.unpack('<q', raw_data)[0]
 
     def read_float(self) -> float:
-        value = struct.unpack_from('<f', self.data, self.offset)[0]
-        self.offset += 4
-        return value
+        raw_data = self.read_bytes(4)
+        return struct.unpack('<f', raw_data)[0]
 
     def read_double(self) -> float:
-        value = struct.unpack_from('<d', self.data, self.offset)[0]
-        self.offset += 8
-        return value
+        raw_data = self.read_bytes(8)
+        return struct.unpack('<d', raw_data)[0]
 
     def read_string(self) -> str:
         length = 0
@@ -149,9 +146,8 @@ class Reader:
             if not byte & 0x80:
                 break
 
-        value = self.data[self.offset:self.offset + length].decode('utf-8')
-        self.offset += length
-        return value
+        raw_data = self.read_bytes(length)
+        return raw_data.decode('utf-8')
 
 
 # osu! packets
