@@ -207,7 +207,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     response_buffer += serial.write_user_presence_packet(
         account_id=account_id,
-        username=user_presence["username"],
+        username=login_data["username"],
         utc_offset=user_presence["utc_offset"],
         country_code=user_presence["country_code"],
         bancho_privileges=to_client_privileges(user_presence["privileges"]),
@@ -263,7 +263,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         message="Welcome to Akatsuki v2!")
 
     response = Response(content=bytes(response_buffer),
-                        headers={"cho-token": session_id},
+                        headers={"cho-token": str(session_id)},
                         status_code=200)
     return response
 
