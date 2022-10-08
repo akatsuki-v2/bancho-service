@@ -243,20 +243,25 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     other_presences: list[dict[str, Any]] = response.json["data"]
 
     for other_presence in other_presences:
-        if not is_restricted(other_presence["privileges"]):
-            global_rank = get_global_rank(other_presence["account_id"])
+        if other_presence["session_id"] == session_id:
+            continue
 
-            response_buffer += serial.write_user_presence_packet(
-                account_id=other_presence["account_id"],
-                username=other_presence["username"],
-                utc_offset=other_presence["utc_offset"],
-                country_code=other_presence["country_code"],
-                bancho_privileges=to_client_privileges(
-                    other_presence["privileges"]),
-                mode=other_presence["game_mode"],
-                latitude=other_presence["latitude"],
-                longitude=other_presence["longitude"],
-                global_rank=global_rank)
+        if is_restricted(other_presence["privileges"]):
+            continue
+
+        global_rank = get_global_rank(other_presence["account_id"])
+
+        response_buffer += serial.write_user_presence_packet(
+            account_id=other_presence["account_id"],
+            username=other_presence["username"],
+            utc_offset=other_presence["utc_offset"],
+            country_code=other_presence["country_code"],
+            bancho_privileges=to_client_privileges(
+                other_presence["privileges"]),
+            mode=other_presence["game_mode"],
+            latitude=other_presence["latitude"],
+            longitude=other_presence["longitude"],
+            global_rank=global_rank)
 
     response_buffer += serial.write_notification_packet(
         message="Welcome to Akatsuki v2!")
