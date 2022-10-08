@@ -194,8 +194,8 @@ async def handle_request_game_mode_stats(ctx: Context, session: Session,
 
 
 @packet_handler(serial.ClientPackets.REQUEST_ALL_USER_STATS)
-async def handle_user_stats_request(ctx: Context, session: Session,
-                                    packet_data: bytes) -> bytes:
+async def handle_request_all_user_stats_request(ctx: Context, session: Session,
+                                                packet_data: bytes) -> bytes:
     users_client = UsersClient(ctx)
 
     response = await users_client.get_all_presences()
@@ -205,6 +205,8 @@ async def handle_user_stats_request(ctx: Context, session: Session,
                       status=response.status_code,
                       response=response.json)
         return b""
+
+    response_buffer = bytearray()
 
     presences: list[Presence] = response.json["data"]
     for presence in presences:
@@ -222,4 +224,20 @@ async def handle_user_stats_request(ctx: Context, session: Session,
 
         stats: Stats = response.json["data"]
 
-    return b""
+        response_buffer += serial.write_user_stats_packet(
+            account_id=stats["account_id"],
+            action=presence["action"],
+            info_text=presence["info_text"],
+            map_md5=presence["map_md5"],
+            mods=presence["mods"],
+            mode=presence["game_mode"],
+            map_id=presence["map_id"],
+            ranked_score=stats["ranked_score"],
+            accuracy=stats["accuracy"],
+            play_count=stats["play_count"],
+            total_score=stats["total_score"],
+            global_rank=0,  # TODO
+            pp=stats["performance"],
+        )
+
+    return bytes(response_buffer)
