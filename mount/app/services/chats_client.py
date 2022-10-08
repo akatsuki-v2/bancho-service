@@ -79,12 +79,16 @@ class ChatsClient:
 
     # members
 
-    async def join_chat(self, chat_id: int, session_id: UUID) -> ServiceResponse:
+    async def join_chat(self, chat_id: int, session_id: UUID, account_id: int,
+                        username: str, privileges: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/chats/{chat_id}/members",
             json={
                 "session_id": session_id,
+                "account_id": account_id,
+                "username": username,
+                "privileges": privileges,
             },
         )
         return response
