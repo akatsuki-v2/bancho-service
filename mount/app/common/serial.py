@@ -321,6 +321,11 @@ def write_privileges_packet(privileges: int) -> bytes:
     return write_packet(ServerPackets.PRIVILEGES, data)
 
 
+def write_channel_join_success_packet(channel: str) -> bytes:
+    data = pack_string(channel)
+    return write_packet(ServerPackets.CHANNEL_JOIN_SUCCESS, data)
+
+
 def write_channel_info_packet(channel: str, topic: str, user_count: int) -> bytes:
     data = pack_string(channel) + pack_string(topic) + pack_uint16(user_count)
     return write_packet(ServerPackets.CHANNEL_INFO, data)
