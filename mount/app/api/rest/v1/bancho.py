@@ -8,7 +8,7 @@ from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
 from app.events.packets import handle_packet_event
-from app.services.chat_client import ChatClient
+from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
@@ -77,7 +77,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     login_data = parse_login_data(await request.body())
 
     users_client = UsersClient(ctx)
-    chat_client = ChatClient(ctx)
+    chats_client = ChatsClient(ctx)
 
     # create user session
     response = await users_client.log_in(login_data["username"],
@@ -100,7 +100,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_account_id_packet(account_id)
     response_buffer += serial.write_privileges_packet(0)  # TODO
 
-    response = await chat_client.get_chats()
+    response = await chats_client.get_chats()
     if response.status_code not in range(200, 300):
         logging.error("Failed to fetch chats", session_id=session_id,
                       status_code=response.status_code, response=response.json)
@@ -113,7 +113,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     for chat in chats:
         # TODO: check user has sufficient read_privileges
         if chat["auto_join"] and chat["name"] != "#lobby":
-            response = await chat_client.get_members(chat["chat_id"])
+            response = await chats_client.get_members(chat["chat_id"])
             if response.status_code not in range(200, 300):
                 logging.error("Failed to fetch chats", session_id=session_id,
                               status_code=response.status_code, response=response.json)

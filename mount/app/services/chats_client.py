@@ -6,7 +6,7 @@ from app.services.http_client import ServiceResponse
 SERVICE_URL = "http://chat-service"
 
 
-class ChatClient:
+class ChatsClient:
     def __init__(self, ctx: Context) -> None:
         self.ctx = ctx
 
