@@ -1,6 +1,6 @@
+import random
 from typing import Awaitable
 from typing import Callable
-from uuid import UUID
 
 from app.common import logging
 from app.common import serial
@@ -141,7 +141,7 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
     return b""
 
 
-@packet_handler(serial.ClientPackets.REQUEST_GAME_MODE_STATS)
+@packet_handler(serial.ClientPackets.REQUEST_SELF_STATS)
 async def handle_request_game_mode_stats(ctx: Context, session: Session,
                                          packet_data: bytes) -> bytes:
     users_client = UsersClient(ctx)
@@ -191,3 +191,35 @@ async def handle_request_game_mode_stats(ctx: Context, session: Session,
         global_rank=0,  # TODO
         pp=stats["performance"],
     )
+
+
+@packet_handler(serial.ClientPackets.REQUEST_ALL_USER_STATS)
+async def handle_user_stats_request(ctx: Context, session: Session,
+                                    packet_data: bytes) -> bytes:
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_all_presences()
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all presences",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    presences: list[Presence] = response.json["data"]
+    for presence in presences:
+        if presence["session_id"] == session["session_id"]:
+            continue
+
+        response = await users_client.get_stats(presence["account_id"],
+                                                presence["game_mode"])
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get user stats",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+        stats: Stats = response.json["data"]
+
+    return b""

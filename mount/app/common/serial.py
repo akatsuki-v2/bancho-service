@@ -157,7 +157,7 @@ class ClientPackets:
     CHANGE_ACTION = 0
     SEND_PUBLIC_MESSAGE = 1
     LOGOUT = 2
-    REQUEST_GAME_MODE_STATS = 3
+    REQUEST_SELF_STATS = 3
     PING = 4
     START_SPECTATING = 16
     STOP_SPECTATING = 17
@@ -194,7 +194,7 @@ class ClientPackets:
     RECEIVE_UPDATES = 79
     SET_AWAY_MESSAGE = 82
     IRC_ONLY = 84
-    USER_STATS_REQUEST = 85
+    REQUEST_ALL_USER_STATS = 85
     MATCH_INVITE = 87
     MATCH_CHANGE_PASSWORD = 90
     TOURNAMENT_MATCH_INFO_REQUEST = 93
@@ -371,7 +371,7 @@ def write_user_stats_packet(account_id: int,
         + pack_uint8(mode)
         + pack_int32(map_id)
         + pack_int64(ranked_score)
-        + pack_float(accuracy)
+        + pack_float(accuracy / 100.0)
         + pack_int32(play_count)
         + pack_int64(total_score)
         + pack_int32(global_rank)
