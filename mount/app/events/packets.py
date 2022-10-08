@@ -26,21 +26,25 @@ async def handle_packet_event(ctx: Context, session: Session, packet_id: int,
     packet_name = serial.client_packet_id_to_name(packet_id)
 
     if packet_handler is None:
+        if packet_id != serial.ClientPackets.LOGOUT:
+            rand_string = " " * random.randrange(0, 10)
+            response_data = serial.write_notification_packet(
+                f"[N] {packet_name} ({packet_id}){rand_string}")
+        else:
+            response_data = b""
+
         logging.warning("Unhandled packet", type=packet_name)
-        return b""
+        return response_data
 
     logging.info("Handling packet", type=packet_name,
                  length=len(packet_data))
 
     response_data = await packet_handler(ctx, session, packet_data)
 
-    # XXX: temp dev thing
-    import string
-    import random
-    request_id = "".join(random.choices(string.ascii_letters, k=5))
     if packet_id != serial.ClientPackets.LOGOUT:
+        rand_string = " " * random.randrange(0, 10)
         response_data += serial.write_notification_packet(
-            f"Handled packet #{request_id} ({packet_name})")
+            f"[Y] {packet_name} ({packet_id}){rand_string}")
 
     return response_data
 
