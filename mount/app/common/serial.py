@@ -148,6 +148,9 @@ class Reader:
                 break
 
         raw_data = self.read_bytes(length)
+        if isinstance(raw_data, memoryview):
+            raw_data = raw_data.tobytes()
+
         return raw_data.decode('utf-8')
 
 
