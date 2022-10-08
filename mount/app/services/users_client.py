@@ -240,7 +240,7 @@ class UsersClient:
 
     # queued packets
 
-    async def enqueue_data(self, session_id: UUID, data: str) -> ServiceResponse:
+    async def enqueue_data(self, session_id: UUID, data: list[int]) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",

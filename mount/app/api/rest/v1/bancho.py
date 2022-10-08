@@ -279,12 +279,13 @@ async def bancho(request: Request,
 
         while not data_reader.stream_consumed:
             packet_id = data_reader.read_uint16()
-            _ = data_reader.read_uint8()
+            _ = data_reader.read_uint8()  # reserved byte
             packet_length = data_reader.read_uint32()
 
             packet_data = data_reader.read_bytes(packet_length)
 
-            packet_response = handle_packet_event(packet_id, packet_data)
+            packet_response = await handle_packet_event(ctx, session_id,
+                                                        packet_id, packet_data)
             response_buffer += packet_response
 
     users_client = UsersClient(ctx)

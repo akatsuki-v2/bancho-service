@@ -297,7 +297,8 @@ def write_account_id_packet(id: int) -> bytes:
     return write_packet(ServerPackets.ACCOUNT_ID, data)
 
 
-def write_send_message_packet(sender: str, message: str, recipient: str, sender_id: int) -> bytes:
+def write_send_message_packet(sender: str, message: str, recipient: str,
+                              sender_id: int) -> bytes:
     data = pack_string(sender) + pack_string(message) + \
         pack_string(recipient) + pack_int32(sender_id)
     return write_packet(ServerPackets.SEND_MESSAGE, data)
@@ -341,6 +342,11 @@ def write_friends_list_packet(friends: list[int]) -> bytes:
 def write_silence_end_packet(remaining_sec: int) -> bytes:
     data = pack_int32(remaining_sec)
     return write_packet(ServerPackets.SILENCE_END, data)
+
+
+def write_user_logout_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id) + pack_uint8(0)
+    return write_packet(ServerPackets.USER_LOGOUT, data)
 
 
 def write_user_stats_packet(account_id: int,
