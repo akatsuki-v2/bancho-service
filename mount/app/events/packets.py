@@ -5,6 +5,7 @@ from typing import Callable
 from app.common import logging
 from app.common import serial
 from app.common.context import Context
+from app.models.chats import Chat
 from app.models.presences import Presence
 from app.models.sessions import Session
 from app.models.stats import Stats
@@ -241,3 +242,57 @@ async def handle_request_all_user_stats_request(ctx: Context, session: Session,
         )
 
     return bytes(response_buffer)
+
+
+@packet_handler(serial.ClientPackets.CHANNEL_JOIN)
+async def handle_channel_join_request(ctx: Context, session: Session,
+                                      packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        channel_name = data_reader.read_string()
+
+    # these channels are client-only and don't exist on the server
+    # (but the osu! server will still send requests for them xd)
+    if channel_name in ("#highlight", "#userlog"):
+        return b""
+
+    chats_client = ChatsClient(ctx)
+
+    response = await chats_client.get_chats(name=channel_name)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chats",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    chats: list[Chat] = response.json["data"]
+
+    if len(chats) != 0:
+        # logging.error("Failed to get chat",
+        #               channel_name=channel_name,
+        #               session_id=session["session_id"])
+        return b""
+
+    chat = chats[0]
+
+    response = await chats_client.join_chat(chat["chat_id"],
+                                            session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to join chat",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    # https://github.com/osuAkatsuki/bancho.py/blob/25d844eb6e2b9ec89e73fcc3b4b7632dbbf35709/app/objects/player.py#L758-L790
+
+    # check if user is already in channel
+
+    # check if user has read privileges to the channel
+
+    # check if channel is #lobby; if so, only allow if we're in mp lobby?
+
+    return b""
