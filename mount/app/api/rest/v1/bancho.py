@@ -276,6 +276,18 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 async def bancho(request: Request,
                  session_id: UUID = Header(..., alias='osu-token'),
                  ctx: RequestContext = Depends()):
+    users_client = UsersClient(ctx)
+
+    new_session_expiry = datetime.utcnow() + timedelta(minutes=5)
+    response = await users_client.partial_update_session(session_id,
+                                                         {"expires_at": new_session_expiry.isoformat()})
+    if response.status_code not in range(200, 300):
+        # this session could not be found - probably expired
+        response = Response(content=serial.write_notification_packet("Service has restarted")
+                            + serial.write_server_restart_packet(ms=0),
+                            status_code=200)
+        return response
+
     response_buffer = bytearray()
 
     # TODO: async for chunk in request.stream()
@@ -292,8 +304,6 @@ async def bancho(request: Request,
             packet_response = await handle_packet_event(ctx, session_id,
                                                         packet_id, packet_data)
             response_buffer += packet_response
-
-    users_client = UsersClient(ctx)
 
     # fetch any data from the player's packet queue
     response = await users_client.deqeue_all_data(session_id)
