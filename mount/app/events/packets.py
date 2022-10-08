@@ -32,7 +32,12 @@ async def handle_packet_event(ctx: Context, session_id: UUID, packet_id: int,
     response_data = await packet_handler(ctx, session_id, packet_data)
 
     # XXX: temp dev thing
-    response_data += serial.write_notification_packet(f"Handled {packet_name}")
+    import string
+    import random
+    request_id = "".join(random.choices(string.ascii_letters, k=5))
+    if packet_id != serial.ClientPackets.LOGOUT:
+        response_data += serial.write_notification_packet(
+            f"Handled packet #{request_id} ({packet_name})")
 
     return response_data
 
