@@ -400,6 +400,11 @@ def write_user_presence_packet(account_id: int,
     return write_packet(ServerPackets.USER_PRESENCE, data)
 
 
+def write_server_restart_packet(ms: int) -> bytes:
+    data = pack_int32(ms)
+    return write_packet(ServerPackets.RESTART, data)
+
+
 def write_notification_packet(message: str) -> bytes:
     data = pack_string(message)
     return write_packet(ServerPackets.NOTIFICATION, data)
