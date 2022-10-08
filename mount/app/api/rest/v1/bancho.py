@@ -83,7 +83,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response = await users_client.log_in(login_data["username"],
                                          login_data["password_md5"],
                                          user_agent="osu!")
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         response = Response(content=serial.write_account_id_packet(-1),
                             headers={"cho-token": "no"},
                             status_code=200)
@@ -101,7 +101,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_privileges_packet(0)  # TODO
 
     response = await chat_client.get_chats()
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         logging.error("Failed to fetch chats", session_id=session_id,
                       status_code=response.status_code, response=response.json)
         return Response(content=serial.write_account_id_packet(-1),
@@ -114,7 +114,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         # TODO: check user has sufficient read_privileges
         if chat["auto_join"] and chat["name"] != "#lobby":
             response = await chat_client.get_members(chat["chat_id"])
-            if response.status_code != 200:
+            if response.status_code not in range(200, 300):
                 logging.error("Failed to fetch chats", session_id=session_id,
                               status_code=response.status_code, response=response.json)
                 return Response(content=serial.write_account_id_packet(-1),
@@ -171,8 +171,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         utc_offset=login_data["utc_offset"],
         display_city=login_data["display_city"],
         pm_private=login_data["pm_private"])
-
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         logging.error("Failed to create user presence", session_id=session_id,
                       status_code=response.status_code, response=response.json)
         response = Response(content=serial.write_account_id_packet(-1),
@@ -185,7 +184,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     # fetch user stats
     response = await users_client.get_stats(account_id, game_mode)
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         logging.error("Failed to get user stats", session_id=session_id,
                       status_code=response.status_code, response=response.json)
         response = Response(content=serial.write_account_id_packet(-1),
@@ -233,7 +232,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     # TODO: other sessions presences & account stats
     response = await users_client.get_all_presences()
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         logging.error("Failed to get all presences",
                       status_code=response.status_code, response=response.json)
         response = Response(content=serial.write_account_id_packet(-1),
@@ -292,7 +291,7 @@ async def bancho(request: Request,
 
     # fetch any data from the player's packet queue
     response = await users_client.deqeue_all_data(session_id)
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         logging.error("Failed to get all presences",
                       status_code=response.status_code, response=response.json)
         # TODO: should we send a packet here?
