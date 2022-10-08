@@ -5,7 +5,9 @@ from typing import Callable
 from app.common import logging
 from app.common import serial
 from app.common.context import Context
+from app.models.accounts import Account
 from app.models.chats import Chat
+from app.models.members import Member
 from app.models.presences import Presence
 from app.models.sessions import Session
 from app.models.stats import Stats
@@ -269,7 +271,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
 
     chats: list[Chat] = response.json["data"]
 
-    if len(chats) != 0:
+    if len(chats) != 1:
         # logging.error("Failed to get chat",
         #               channel_name=channel_name,
         #               session_id=session["session_id"])
@@ -277,8 +279,50 @@ async def handle_channel_join_request(ctx: Context, session: Session,
 
     chat = chats[0]
 
+    # https://github.com/osuAkatsuki/bancho.py/blob/25d844eb6e2b9ec89e73fcc3b4b7632dbbf35709/app/objects/player.py#L758-L790
+
+    # check if user is already in channel
+    response = await chats_client.get_members(chat["chat_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chat members",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    members: list[Member] = response.json["data"]
+
+    for member in members:
+        if member["account_id"] == session["account_id"]:
+            logging.error("User attempted to join channel they're already in",
+                          channel_name=channel_name,
+                          session_id=session["session_id"])
+            return b""
+
+    # check if user has read privileges to the channel
+    # TODO
+
+    # check if channel is #lobby; if so, only allow if we're in mp lobby?
+
+    # join the channel
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_account(session["account_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get account",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    account: Account = response.json["data"]
+
     response = await chats_client.join_chat(chat["chat_id"],
-                                            session["session_id"])
+                                            session["session_id"],
+                                            session["account_id"],
+                                            account["username"],
+                                            privileges=0)  # TODO
     if response.status_code not in range(200, 300):
         logging.error("Failed to join chat",
                       channel_name=channel_name,
@@ -286,13 +330,37 @@ async def handle_channel_join_request(ctx: Context, session: Session,
                       status=response.status_code,
                       response=response.json)
         return b""
+    print('joined caht')
+    # TODO: attach channel to player?
 
-    # https://github.com/osuAkatsuki/bancho.py/blob/25d844eb6e2b9ec89e73fcc3b4b7632dbbf35709/app/objects/player.py#L758-L790
+    response_buffer = bytearray()
 
-    # check if user is already in channel
+    response_buffer += serial.write_channel_join_success_packet(channel_name)
 
-    # check if user has read privileges to the channel
+    # send updated channel info (player count) to everyone that can see it
+    updated_channel_info = serial.write_channel_info_packet(channel=chat["name"],
+                                                            topic=chat["topic"],
+                                                            user_count=len(members))
 
-    # check if channel is #lobby; if so, only allow if we're in mp lobby?
+    response = await users_client.get_all_presences()
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all presences",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
 
-    return b""
+    presences: list[Presence] = response.json["data"]
+    for presence in presences:
+        # TODO: only if they have read privs
+
+        response = await users_client.enqueue_data(presence["session_id"],
+                                                   list(updated_channel_info))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return bytes(response_buffer)
