@@ -5,19 +5,22 @@ from uuid import UUID
 from app.common import logging
 from app.common import serial
 from app.common.context import Context
+from app.models.presences import Presence
+from app.models.sessions import Session
+from app.models.stats import Stats
 from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
 
 PACKET_HANDLERS = {}
 
-PacketHandler = Callable[[Context, UUID, bytes], Awaitable[bytes]]
+PacketHandler = Callable[[Context, Session, bytes], Awaitable[bytes]]
 
 
 def get_packet_handler(packet_id: int) -> PacketHandler | None:
     return PACKET_HANDLERS.get(packet_id)
 
 
-async def handle_packet_event(ctx: Context, session_id: UUID, packet_id: int,
+async def handle_packet_event(ctx: Context, session: Session, packet_id: int,
                               packet_data: bytes) -> bytes:
     packet_handler = get_packet_handler(packet_id)
     packet_name = serial.client_packet_id_to_name(packet_id)
@@ -29,7 +32,7 @@ async def handle_packet_event(ctx: Context, session_id: UUID, packet_id: int,
     logging.info("Handling packet", type=packet_name,
                  length=len(packet_data))
 
-    response_data = await packet_handler(ctx, session_id, packet_data)
+    response_data = await packet_handler(ctx, session, packet_data)
 
     # XXX: temp dev thing
     import string
@@ -50,7 +53,7 @@ def packet_handler(packet_id: int) -> Callable[[PacketHandler], PacketHandler]:
 
 
 @packet_handler(serial.ClientPackets.PING)
-async def handle_ping(ctx: Context, session_id: UUID,  packet_data: bytes
+async def handle_ping(ctx: Context, session: Session,  packet_data: bytes
                       ) -> bytes:
     # NOTE: this makes osu! send it's next request immediately
     # could be useful for something like a 'low delay mode'?
@@ -60,7 +63,7 @@ async def handle_ping(ctx: Context, session_id: UUID,  packet_data: bytes
 
 
 @packet_handler(serial.ClientPackets.LOGOUT)
-async def handle_logout(ctx: Context, session_id: UUID, packet_data: bytes
+async def handle_logout(ctx: Context, session: Session, packet_data: bytes
                         ) -> bytes:
     # (?) clear user packet queue
 
@@ -68,19 +71,19 @@ async def handle_logout(ctx: Context, session_id: UUID, packet_data: bytes
     chats_client = ChatsClient(ctx)
 
     # delete user presence
-    response = await users_client.delete_presence(session_id)
+    response = await users_client.delete_presence(session["session_id"])
     if response.status_code not in range(200, 300):
         logging.error("Failed to delete user presence",
-                      session_id=session_id,
+                      session_id=session["session_id"],
                       status=response.status_code,
                       response=response.json)
         return b""
 
     # delete user session
-    response = await users_client.log_out(session_id)
+    response = await users_client.log_out(session["session_id"])
     if response.status_code not in range(200, 300):
         logging.error("Failed to delete user session",
-                      session_id=session_id,
+                      session_id=session["session_id"],
                       status=response.status_code,
                       response=response.json)
         return b""
@@ -89,17 +92,18 @@ async def handle_logout(ctx: Context, session_id: UUID, packet_data: bytes
     response = await chats_client.get_chats()
     if response.status_code not in range(200, 300):
         logging.error("Failed to get chats",
-                      session_id=session_id,
+                      session_id=session["session_id"],
                       status=response.status_code,
                       response=response.json)
         return b""
 
-    chats = response.json
+    chats = response.json["data"]
     for chat in chats:
-        response = await chats_client.leave_chat(chat["id"], session_id)
+        response = await chats_client.leave_chat(chat["chat_id"],
+                                                 session["session_id"])
         if response.status_code not in range(200, 300):
             logging.error("Failed to leave chat",
-                          session_id=session_id,
+                          session_id=session["session_id"],
                           status=response.status_code,
                           response=response.json)
             return b""
@@ -110,24 +114,76 @@ async def handle_logout(ctx: Context, session_id: UUID, packet_data: bytes
     response = await users_client.get_all_presences()
     if response.status_code not in range(200, 300):
         logging.error("Failed to get all presences",
-                      session_id=session_id,
+                      session_id=session["session_id"],
                       status=response.status_code,
                       response=response.json)
         return b""
 
-    presences = response.json
+    presences = response.json["data"]
     for presence in presences:
-        if presence["session_id"] == session_id:
+        if presence["session_id"] == session["session_id"]:
             continue
 
-        packet_data = serial.write_user_logout_packet(presence["user_id"])
+        logout_data = serial.write_user_logout_packet(presence["user_id"])
         response = await users_client.enqueue_data(presence["session_id"],
-                                                   list(packet_data))
+                                                   data=list(logout_data))
         if response.status_code not in range(200, 300):
             logging.error("Failed to send logout packet",
-                          session_id=session_id,
+                          session_id=session["session_id"],
                           status=response.status_code,
                           response=response.json)
             return b""
 
     return b""
+
+
+@packet_handler(serial.ClientPackets.REQUEST_GAME_MODE_STATS)
+async def handle_request_game_mode_stats(ctx: Context, session: Session,
+                                         packet_data: bytes) -> bytes:
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_presence(session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get user presence",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    presence: Presence = response.json["data"]
+
+    response = await users_client.get_stats(session["account_id"],
+                                            presence["game_mode"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get user stats",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    response = await users_client.get_stats(session["account_id"],
+                                            presence["game_mode"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get user stats",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    stats: Stats = response.json["data"]
+
+    return serial.write_user_stats_packet(
+        account_id=session["account_id"],
+        action=presence["action"],
+        info_text=presence["info_text"],
+        map_md5=presence["map_md5"],
+        mods=presence["mods"],
+        mode=presence["game_mode"],
+        map_id=presence["map_id"],
+        ranked_score=stats["ranked_score"],
+        accuracy=stats["accuracy"],
+        play_count=stats["play_count"],
+        total_score=stats["total_score"],
+        global_rank=0,  # TODO
+        pp=stats["performance"],
+    )

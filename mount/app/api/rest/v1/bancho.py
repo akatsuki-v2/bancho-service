@@ -10,6 +10,8 @@ from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
 from app.events.packets import handle_packet_event
+from app.models.sessions import LoginData
+from app.models.sessions import Session
 from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
 from fastapi import APIRouter
@@ -19,20 +21,6 @@ from fastapi import Request
 from fastapi import Response
 
 router = APIRouter()
-
-
-class LoginData(TypedDict):
-    username: str
-    password_md5: str
-    osu_version: str
-    utc_offset: int
-    display_city: bool
-    pm_private: bool
-    osu_path_md5: str
-    adapters_str: str
-    adapters_md5: str
-    uninstall_md5: str
-    disk_signature_md5: str
 
 
 def parse_login_data(data: bytes) -> LoginData:
@@ -113,33 +101,35 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     chats: list[dict[str, Any]] = response.json["data"]
 
     for chat in chats:
-        # TODO: check user has sufficient read_privileges
-        if chat["auto_join"] and chat["name"] != "#lobby":
-            response = await chats_client.get_members(chat["chat_id"])
-            if response.status_code not in range(200, 300):
-                logging.error("Failed to fetch chats", session_id=session_id,
-                              status_code=response.status_code, response=response.json)
-                return Response(content=serial.write_account_id_packet(-1),
-                                headers={"cho-token": "no"},
-                                status_code=200)
+        if chat["name"] == "#lobby":
+            continue
 
-            members: list[dict[str, Any]] = response.json["data"]
+        response = await chats_client.get_members(chat["chat_id"])
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to fetch chats", session_id=session_id,
+                          status_code=response.status_code, response=response.json)
+            return Response(content=serial.write_account_id_packet(-1),
+                            headers={"cho-token": "no"},
+                            status_code=200)
 
-            response_buffer += serial.write_channel_info_packet(
-                channel=chat["name"],
-                topic=chat["topic"],
-                user_count=len(members),
-            )
+        members: list[dict[str, Any]] = response.json["data"]
 
-            # TODO: enqueue to other players that we've joined
+        response_buffer += serial.write_channel_info_packet(
+            channel=chat["name"],
+            topic=chat["topic"],
+            user_count=len(members),
+        )
+
+        # TODO: enqueue to other players that we've joined
 
     response_buffer += serial.write_channel_info_end_packet()
 
-    response_buffer += serial.write_main_menu_icon_packet(
-        # TODO: unhardcode these values - probably into an sql table
-        icon_url="https://akatsuki.pw/static/images/logos/logo.png",
-        onclick_url="https://akatsuki.pw",
-    )
+    # response_buffer += serial.write_main_menu_icon_packet(
+    #     # TODO: unhardcode these values - probably into an sql table
+    #     icon_url="https://akatsuki.pw/static/images/logos/logo.png",
+    #     onclick_url="https://akatsuki.pw",
+    # )
+
     response_buffer += serial.write_friends_list_packet([])  # TODO
     response_buffer += serial.write_silence_end_packet(0)  # TODO
 
@@ -285,10 +275,12 @@ async def bancho(request: Request,
                                                          {"expires_at": new_session_expiry.isoformat()})
     if response.status_code not in range(200, 300):
         # this session could not be found - probably expired
-        response = Response(content=serial.write_notification_packet("Service has restarted")
-                            + serial.write_server_restart_packet(ms=0),
+        response = Response(content=(serial.write_notification_packet("Service has restarted")
+                                     + serial.write_server_restart_packet(ms=0)),
                             status_code=200)
         return response
+
+    session: Session = response.json["data"]
 
     response_buffer = bytearray()
 
@@ -303,7 +295,7 @@ async def bancho(request: Request,
 
             packet_data = data_reader.read_bytes(packet_length)
 
-            packet_response = await handle_packet_event(ctx, session_id,
+            packet_response = await handle_packet_event(ctx, session,
                                                         packet_id, packet_data)
             response_buffer += packet_response
 
