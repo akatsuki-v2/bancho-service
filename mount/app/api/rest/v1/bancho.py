@@ -321,7 +321,10 @@ async def bancho(request: Request,
     for chunk in packet_queue:
         response_buffer.extend(chunk)
 
-    logging.debug("Sending bancho response", session_id=session_id,
-                  response=bytes(response_buffer))
+    response_data = bytes(response_buffer)
 
-    return Response(bytes(response_buffer))
+    logging.debug("Sending bancho response", session_id=session_id,
+                  response=response_data)
+
+    response = Response(content=response_data, status_code=200)
+    return response
