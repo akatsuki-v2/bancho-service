@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from app.common.context import Context
+from app.models import Status
 from app.services.http_client import ServiceResponse
 
 SERVICE_URL = "http://chat-service"
@@ -36,10 +37,26 @@ class ChatsClient:
         )
         return response
 
-    async def get_chats(self) -> ServiceResponse:
+    async def get_chats(self,
+                        name: str | None = None,
+                        topic: str | None = None,
+                        read_privileges: int | None = None,
+                        write_privileges: int | None = None,
+                        auto_join: bool | None = None,
+                        status: Status | None = Status.ACTIVE,
+                        created_by: int | None = None) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/chats",
+            params={
+                "name": name,
+                "topic": topic,
+                "read_privileges": read_privileges,
+                "write_privileges": write_privileges,
+                "auto_join": auto_join,
+                "status": status,
+                "created_by": created_by,
+            },
         )
         return response
 
