@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
-from typing import TypedDict
 from uuid import UUID
 
 from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
 from app.events.packets import handle_packet_event
+from app.models.queued_packets import QueuedPacket
 from app.models.sessions import LoginData
 from app.models.sessions import Session
 from app.services.chats_client import ChatsClient
@@ -302,7 +302,7 @@ async def bancho(request: Request,
     # fetch any data from the player's packet queue
     response = await users_client.deqeue_all_data(session_id)
     if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
+        logging.error("Failed to dequeue all data", session_id=session_id,
                       status_code=response.status_code, response=response.json)
         # TODO: should we send a packet here?
         # response = Response(content=serial.write_account_id_packet(-1),
@@ -311,9 +311,9 @@ async def bancho(request: Request,
         response = b""
         return response
 
-    packet_queue: list[list[int]] = response.json["data"]
-    for chunk in packet_queue:
-        response_buffer.extend(chunk)
+    queued_packets: list[QueuedPacket] = response.json["data"]
+    for packet in queued_packets:
+        response_buffer.extend(packet["data"])
 
     response_data = bytes(response_buffer)
 
