@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import Enum
+from enum import IntEnum
 from typing import Any
 from typing import Literal
 from typing import Mapping
@@ -35,6 +37,20 @@ class ServiceHTTPClient(AsyncClient):
                            ) -> ServiceResponse:
         if json := kwargs.get("json"):
             kwargs["json"] = jsonu.preprocess_json(json)
+
+        params = {}
+        if _params := kwargs.get("params"):
+            assert isinstance(_params, Mapping)
+            for k, v in _params.items():
+                if v is None:
+                    continue
+
+                if isinstance(v, Enum):
+                    v = v.value
+
+                params[k] = v
+
+        kwargs["params"] = params
 
         httpx_response = await self.request(*args, **kwargs)
 
