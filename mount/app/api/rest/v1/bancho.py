@@ -273,7 +273,7 @@ async def bancho(request: Request,
 
     new_session_expiry = datetime.utcnow() + timedelta(minutes=5)
     response = await users_client.partial_update_session(session_id,
-                                                         {"expires_at": new_session_expiry.isoformat()})
+                                                         expires_at=new_session_expiry)
     if response.status_code not in range(200, 300):
         # this session could not be found - probably expired
         response = Response(content=(serial.write_notification_packet("Service has restarted")

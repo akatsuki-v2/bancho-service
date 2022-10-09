@@ -153,12 +153,14 @@ class UsersClient:
         return response
 
     async def partial_update_session(self, session_id: UUID,
-                                     json: dict  # TODO: model?
+                                     expires_at: datetime | None,
                                      ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
-            json=json,
+            json={
+                "expires_at": expires_at.isoformat() if expires_at else None,
+            }
         )
         return response
 
