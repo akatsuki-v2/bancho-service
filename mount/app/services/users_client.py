@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.common.context import Context
@@ -224,12 +225,44 @@ class UsersClient:
         return response
 
     async def partial_update_presence(self, session_id: UUID,
-                                      json: dict  # TODO: model?
+                                      game_mode: int | None = None,
+                                      username: str | None = None,
+                                      country_code: int | None = None,
+                                      privileges: int | None = None,
+                                      latitude: float | None = None,
+                                      longitude: float | None = None,
+                                      action: int | None = None,
+                                      info_text: str | None = None,
+                                      map_md5: str | None = None,
+                                      map_id: int | None = None,
+                                      mods: int | None = None,
+
+                                      osu_version: str | None = None,
+                                      utc_offset: int | None = None,
+                                      display_city: bool | None = None,
+                                      pm_private: bool | None = None,
                                       ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
-            json=json,
+            json={
+                "game_mode": game_mode,
+                "username": username,
+                "country_code": country_code,
+                "privileges": privileges,
+                "latitude": latitude,
+                "longitude": longitude,
+                "action": action,
+                "info_text": info_text,
+                "map_md5": map_md5,
+                "map_id": map_id,
+                "mods": mods,
+
+                "osu_version": osu_version,
+                "utc_offset": utc_offset,
+                "display_city": display_city,
+                "pm_private": pm_private,
+            },
         )
         return response
 
