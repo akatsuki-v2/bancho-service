@@ -81,7 +81,11 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     session_id = UUID(response.json["data"]["session_id"])
     account_id: int = response.json["data"]["account_id"]
-    privileges = 2_147_483_647  # TODO
+
+    # TODO: privileges
+    privileges = 2_147_483_647
+    def is_restricted(server_privs: int): return False
+    def to_client_privileges(server_privs: int): return server_privs & 0xff
 
     # TODO: endpoint to submit client hashes
     # (osu_path_md5, adapters_str, adapters_md5, uninstall_md5, disk_signature_md5)
@@ -125,24 +129,22 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     response_buffer += serial.write_channel_info_end_packet()
 
+    # TODO: unhardcode these into an sql table
     # response_buffer += serial.write_main_menu_icon_packet(
-    #     # TODO: unhardcode these values - probably into an sql table
     #     icon_url="https://akatsuki.pw/static/images/logos/logo.png",
     #     onclick_url="https://akatsuki.pw",
     # )
 
-    response_buffer += serial.write_friends_list_packet([])  # TODO
-    response_buffer += serial.write_silence_end_packet(0)  # TODO
+    response_buffer += serial.write_friends_list_packet([])  # TODO: friends
+    response_buffer += serial.write_silence_end_packet(0)  # TODO: silences
 
-    # TODO: geolocation lookup by ip
+    # TODO: geolocation
+    country_code = 38
+    latitude = 48.23
+    longitude = 16.37
 
-    def is_restricted(privileges: int) -> bool:  # TODO
-        return False
-
-    def to_client_privileges(server_privileges: int) -> int:  # TODO
-        return server_privileges & 0xff
-
-    def get_global_rank(account_id: int) -> int:  # TODO
+    # TODO: global player rankings
+    def get_global_rank(account_id: int) -> int:
         return 0
 
     # create user presence
@@ -151,10 +153,10 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         game_mode=0,
         account_id=account_id,
         username=login_data["username"],
-        country_code=38,  # TODO: geolocation
+        country_code=country_code,
         privileges=privileges,
-        latitude=0.0,  # TODO: geolocation
-        longitude=0.0,  # TODO: geolocation
+        latitude=latitude,
+        longitude=longitude,
         action=0,
         info_text="",
         map_md5="",
@@ -193,8 +195,6 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     #  'active', 'created_at': '2022-09-18T12:25:04.923023+00:00',
     #  'updated_at': '2022-09-18T12:25:04.923023+00:00'}
 
-    # TODO: not exactly sure how we should handle this?
-    # should we have a `ranking-service` that handles ranking?
     user_global_rank = get_global_rank(account_id)
 
     response_buffer += serial.write_user_presence_packet(
