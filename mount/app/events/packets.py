@@ -330,6 +330,11 @@ async def handle_change_action_request(ctx: Context, session: Session,
     return b""
 
 
+# these channels are client-only and don't exist on the server
+# (but the osu! client will still send requests for them xd)
+CLIENT_ONLY_CHANNELS = ("#hightlight", "#userlog")
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
@@ -337,9 +342,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
         data_reader = serial.Reader(raw_data)
         channel_name = data_reader.read_string()
 
-    # these channels are client-only and don't exist on the server
-    # (but the osu! server will still send requests for them xd)
-    if channel_name in ("#highlight", "#userlog"):
+    if channel_name in CLIENT_ONLY_CHANNELS:
         return b""
 
     chats_client = ChatsClient(ctx)
