@@ -38,11 +38,11 @@ def pack_int64(value: int) -> bytes:
     return struct.pack('<q', value)
 
 
-def pack_float(value: float) -> bytes:
+def pack_float32(value: float) -> bytes:
     return struct.pack('<f', value)
 
 
-def pack_double(value: float) -> bytes:
+def pack_float64(value: float) -> bytes:
     return struct.pack('<d', value)
 
 
@@ -383,7 +383,7 @@ def write_user_stats_packet(account_id: int,
         + pack_uint8(mode)
         + pack_int32(map_id)
         + pack_int64(ranked_score)
-        + pack_float(accuracy / 100.0)
+        + pack_float32(accuracy / 100.0)
         + pack_int32(play_count)
         + pack_int64(total_score)
         + pack_int32(global_rank)
@@ -406,8 +406,8 @@ def write_user_presence_packet(account_id: int,
         + pack_uint8(utc_offset + 24)
         + pack_uint8(country_code)
         + pack_uint8(bancho_privileges | (mode << 5))
-        + pack_float(latitude)
-        + pack_float(longitude)
+        + pack_float32(latitude)
+        + pack_float32(longitude)
         + pack_int32(global_rank))
     return write_packet(ServerPackets.USER_PRESENCE, data)
 
