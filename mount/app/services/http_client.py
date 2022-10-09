@@ -52,6 +52,8 @@ class ServiceHTTPClient(AsyncClient):
 
         kwargs["params"] = params
 
+        # TODO: filter none values from json params?
+
         httpx_response = await self.request(*args, **kwargs)
 
         response = await ServiceResponse.from_httpx_response(httpx_response)

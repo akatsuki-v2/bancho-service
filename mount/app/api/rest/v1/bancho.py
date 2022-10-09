@@ -81,6 +81,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     session_id = UUID(response.json["data"]["session_id"])
     account_id: int = response.json["data"]["account_id"]
+    privileges = 2_147_483_647  # TODO
 
     # TODO: endpoint to submit client hashes
     # (osu_path_md5, adapters_str, adapters_md5, uninstall_md5, disk_signature_md5)
@@ -88,7 +89,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer = bytearray()
     response_buffer += serial.write_protocol_version_packet(19)
     response_buffer += serial.write_account_id_packet(account_id)
-    response_buffer += serial.write_privileges_packet(0)  # TODO
+    response_buffer += serial.write_privileges_packet(privileges)
 
     response = await chats_client.get_chats()
     if response.status_code not in range(200, 300):
@@ -139,7 +140,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         return False
 
     def to_client_privileges(server_privileges: int) -> int:  # TODO
-        return server_privileges
+        return server_privileges & 0xff
 
     def get_global_rank(account_id: int) -> int:  # TODO
         return 0
@@ -151,7 +152,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         account_id=account_id,
         username=login_data["username"],
         country_code=38,  # TODO: geolocation
-        privileges=0,
+        privileges=privileges,
         latitude=0.0,  # TODO: geolocation
         longitude=0.0,  # TODO: geolocation
         action=0,

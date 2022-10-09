@@ -330,7 +330,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
                       status=response.status_code,
                       response=response.json)
         return b""
-    print('joined caht')
+
     # TODO: attach channel to player?
 
     response_buffer = bytearray()
