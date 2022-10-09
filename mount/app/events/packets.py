@@ -330,6 +330,24 @@ async def handle_change_action_request(ctx: Context, session: Session,
     return b""
 
 
+@packet_handler(serial.ClientPackets.UPDATE_PRESENCE_FILTER)
+async def handle_update_presence_filter_request(ctx: Context, session: Session,
+                                                packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        presence_filter = data_reader.read_uint8()
+
+    if presence_filter not in range(0, 3):
+        logging.warning("User sent an invalid presence filter",
+                        session_id=session["session_id"],
+                        presence_filter=presence_filter)
+        return b""
+
+    # TODO: set this on the user
+
+    return b""
+
+
 # these channels are client-only and don't exist on the server
 # (but the osu! client will still send requests for them xd)
 CLIENT_ONLY_CHANNELS = ("#hightlight", "#userlog")
