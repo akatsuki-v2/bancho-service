@@ -138,6 +138,10 @@ class Reader:
         return struct.unpack('<d', raw_data)[0]
 
     def read_string(self) -> str:
+        exists = self.read_uint8()
+        if exists != 0x0b:
+            return ""
+
         length = 0
         shift = 0
         while True:
