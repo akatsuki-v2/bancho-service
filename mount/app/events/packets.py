@@ -246,6 +246,90 @@ async def handle_request_all_user_stats_request(ctx: Context, session: Session,
     return bytes(response_buffer)
 
 
+@packet_handler(serial.ClientPackets.CHANGE_ACTION)
+async def handle_change_action_request(ctx: Context, session: Session,
+                                       packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        action = data_reader.read_uint8()
+        info_text = data_reader.read_string()
+        map_md5 = data_reader.read_string()
+        mods = data_reader.read_uint32()
+        mode = data_reader.read_uint8()
+        # TODO: convert mode to std/rx/ap?
+        # https://github.com/osuAkatsuki/bancho.py/blob/master/app/api/domains/cho.py#L188-L197
+        map_id = data_reader.read_int32()
+
+    users_client = UsersClient(ctx)
+
+    response = await users_client.partial_update_presence(
+        session["session_id"],
+        action=action,
+        info_text=info_text,
+        map_md5=map_md5,
+        mods=mods,
+        game_mode=mode,
+        map_id=map_id,
+    )
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to update user presence",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    presence: Presence = response.json["data"]
+
+    response = await users_client.get_stats(presence["account_id"],
+                                            presence["game_mode"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get user stats",
+                      account_id=presence["account_id"],
+                      game_mode=presence["game_mode"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    stats: Stats = response.json["data"]
+
+    # broadcast the new presence to all other users
+    # TODO: if the user is restricted, should not happen
+    response = await users_client.get_all_presences()
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all presences",
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    other_presences: list[Presence] = response.json["data"]
+
+    data = serial.write_user_stats_packet(account_id=session["account_id"],
+                                          action=action,
+                                          info_text=info_text,
+                                          map_md5=map_md5,
+                                          mods=mods,
+                                          mode=mode,
+                                          map_id=map_id,
+                                          ranked_score=stats["ranked_score"],
+                                          accuracy=stats["accuracy"],
+                                          play_count=stats["play_count"],
+                                          total_score=stats["total_score"],
+                                          global_rank=0,  # TODO
+                                          pp=stats["performance"])
+
+    for other_presence in other_presences:
+        response = await users_client.enqueue_data(other_presence["session_id"],
+                                                   data=list(data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=other_presence["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return b""
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
