@@ -328,7 +328,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     end_time = time.time()
     response_buffer += serial.write_notification_packet(
-        f"Login took {(end_time - start_time) * 1000}ms")
+        f"Login took {(end_time - start_time) * 1000:.2f}ms")
 
     response = Response(content=bytes(response_buffer),
                         headers={"cho-token": str(session_id)},
