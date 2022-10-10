@@ -153,6 +153,25 @@ class UsersClient:
         )
         return response
 
+    async def get_session(self, session_id: UUID) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions/{session_id}",
+        )
+        return response
+
+    async def get_all_sessions(self, account_id: int | None = None,
+                               user_agent: str | None = None) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions",
+            params={
+                "account_id": account_id,
+                "user_agent": user_agent,
+            },
+        )
+        return response
+
     async def partial_update_session(self, session_id: UUID,
                                      expires_at: datetime | None,
                                      ) -> ServiceResponse:
