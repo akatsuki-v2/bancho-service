@@ -219,7 +219,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     user_global_rank = get_global_rank(account_id)
 
-    response_buffer += serial.write_user_presence_packet(
+    user_presence_data = serial.write_user_presence_packet(
         account_id=account_id,
         username=login_data["username"],
         utc_offset=presence["utc_offset"],
@@ -230,7 +230,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         longitude=presence["longitude"],
         global_rank=user_global_rank)
 
-    response_buffer += serial.write_user_stats_packet(
+    user_stats_data = serial.write_user_stats_packet(
         account_id=account_id,
         action=presence["action"],
         info_text=presence["info_text"],
@@ -244,6 +244,9 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         total_score=user_stats["total_score"],
         global_rank=user_global_rank,
         pp=user_stats["performance"])
+
+    response_buffer += user_presence_data
+    response_buffer += user_stats_data
 
     # TODO: other sessions presences & account stats
     response = await users_client.get_all_presences()
@@ -278,6 +281,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
         global_rank = get_global_rank(other_presence["account_id"])
 
+        # send them to us
         response_buffer += serial.write_user_presence_packet(
             account_id=other_presence["account_id"],
             username=other_presence["username"],
@@ -304,6 +308,17 @@ async def login(request: Request, ctx: RequestContext = Depends()):
             total_score=other_stats["total_score"],
             global_rank=global_rank,
             pp=other_stats["performance"])
+
+        # send us to them
+        response = await users_client.enqueue_data(other_presence["session_id"],
+                                                   data=list(user_presence_data + user_stats_data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          status_code=response.status_code, response=response.json)
+            response = Response(content=serial.write_account_id_packet(-1),
+                                headers={"cho-token": "no"},
+                                status_code=200)
+            return response
 
     response_buffer += serial.write_notification_packet(
         message="Welcome to Akatsuki v2!")
