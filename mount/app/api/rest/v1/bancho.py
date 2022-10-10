@@ -9,6 +9,7 @@ from app.api.rest.context import RequestContext
 from app.common import logging
 from app.common import serial
 from app.events.packets import handle_packet_event
+from app.models.presences import Presence
 from app.models.queued_packets import QueuedPacket
 from app.models.sessions import LoginData
 from app.models.sessions import Session
@@ -68,6 +69,23 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     users_client = UsersClient(ctx)
     chats_client = ChatsClient(ctx)
+
+    # make sure this user isn't already logged in
+    response = await users_client.get_all_presences(username=login_data["username"])
+    if response.status_code not in range(200, 300):
+        response = Response(content=serial.write_account_id_packet(-1),
+                            headers={"cho-token": "no"},
+                            status_code=200)
+        return response
+
+    presences: list[Presence] = response.json["data"]
+
+    if len(presences) > 0:
+        response = Response(content=(serial.write_notification_packet("Your account is already logged in.")
+                                     + serial.write_account_id_packet(-1)),
+                            headers={"cho-token": "no"},
+                            status_code=200)
+        return response
 
     # create user session
     response = await users_client.log_in(login_data["username"],
@@ -135,8 +153,11 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     #     onclick_url="https://akatsuki.pw",
     # )
 
-    response_buffer += serial.write_friends_list_packet([])  # TODO: friends
-    response_buffer += serial.write_silence_end_packet(0)  # TODO: silences
+    friends = []  # TODO: friends
+    silence_end = 0  # TODO: silences
+
+    response_buffer += serial.write_friends_list_packet(friends)
+    response_buffer += serial.write_silence_end_packet(silence_end)
 
     # TODO: geolocation
     country_code = 38
@@ -144,6 +165,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     longitude = 16.37
 
     # TODO: global player rankings
+
     def get_global_rank(account_id: int) -> int:
         return 0
 
