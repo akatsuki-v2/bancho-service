@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
@@ -65,6 +66,8 @@ def parse_login_data(data: bytes) -> LoginData:
 
 @router.post("/v1/login")
 async def login(request: Request, ctx: RequestContext = Depends()):
+    start_time = time.time()
+
     login_data = parse_login_data(await request.body())
 
     users_client = UsersClient(ctx)
@@ -322,6 +325,10 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     response_buffer += serial.write_notification_packet(
         message="Welcome to Akatsuki v2!")
+
+    end_time = time.time()
+    response_buffer += serial.write_notification_packet(
+        f"Login took {(end_time - start_time) * 1000}ms")
 
     response = Response(content=bytes(response_buffer),
                         headers={"cho-token": str(session_id)},
