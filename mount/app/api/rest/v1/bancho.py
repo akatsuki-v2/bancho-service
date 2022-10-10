@@ -174,8 +174,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
                             status_code=200)
         return response
 
-    user_presence: dict[str, Any] = response.json["data"]
-    game_mode: int = user_presence["game_mode"]
+    presence: dict[str, Any] = response.json["data"]
+    game_mode: int = presence["game_mode"]
 
     # fetch user stats
     response = await users_client.get_stats(account_id, game_mode)
@@ -200,22 +200,22 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_user_presence_packet(
         account_id=account_id,
         username=login_data["username"],
-        utc_offset=user_presence["utc_offset"],
-        country_code=user_presence["country_code"],
-        bancho_privileges=to_client_privileges(user_presence["privileges"]),
-        mode=user_presence["game_mode"],
-        latitude=user_presence["latitude"],
-        longitude=user_presence["longitude"],
+        utc_offset=presence["utc_offset"],
+        country_code=presence["country_code"],
+        bancho_privileges=to_client_privileges(presence["privileges"]),
+        mode=presence["game_mode"],
+        latitude=presence["latitude"],
+        longitude=presence["longitude"],
         global_rank=user_global_rank)
 
     response_buffer += serial.write_user_stats_packet(
         account_id=account_id,
-        action=user_presence["action"],
-        info_text=user_presence["info_text"],
-        map_md5=user_presence["map_md5"],
-        mods=user_presence["mods"],
-        mode=user_presence["game_mode"],
-        map_id=user_presence["map_id"],
+        action=presence["action"],
+        info_text=presence["info_text"],
+        map_md5=presence["map_md5"],
+        mods=presence["mods"],
+        mode=presence["game_mode"],
+        map_id=presence["map_id"],
         ranked_score=user_stats["ranked_score"],
         accuracy=user_stats["accuracy"],
         play_count=user_stats["play_count"],
