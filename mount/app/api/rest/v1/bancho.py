@@ -24,6 +24,8 @@ from fastapi import Response
 
 router = APIRouter()
 
+OSU_STABLE_PROTOCOL_VERSION = 19
+
 
 def parse_login_data(data: bytes) -> LoginData:
     """Parse data from the body of a login request."""
@@ -112,7 +114,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     # (osu_path_md5, adapters_str, adapters_md5, uninstall_md5, disk_signature_md5)
 
     response_buffer = bytearray()
-    response_buffer += serial.write_protocol_version_packet(19)
+    response_buffer += serial.write_protocol_version_packet(
+        version=OSU_STABLE_PROTOCOL_VERSION)
     response_buffer += serial.write_account_id_packet(account_id)
     response_buffer += serial.write_privileges_packet(privileges)
 
