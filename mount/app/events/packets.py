@@ -126,14 +126,15 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
                       response=response.json)
         return b""
 
-    presences = response.json["data"]
-    for presence in presences:
-        if presence["session_id"] == session["session_id"]:
-            continue
+    data = serial.write_user_logout_packet(session["account_id"])
 
-        logout_data = serial.write_user_logout_packet(presence["user_id"])
-        response = await users_client.enqueue_data(presence["session_id"],
-                                                   data=list(logout_data))
+    other_presences: list[Presence] = response.json["data"]
+    for other_presence in other_presences:
+        # if presence["session_id"] == session["session_id"]:
+        #     continue
+
+        response = await users_client.enqueue_data(other_presence["session_id"],
+                                                   data=list(data))
         if response.status_code not in range(200, 300):
             logging.error("Failed to send logout packet",
                           session_id=session["session_id"],
