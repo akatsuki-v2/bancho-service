@@ -122,7 +122,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response = await chats_client.get_chats()
     if response.status_code not in range(200, 300):
         logging.error("Failed to fetch chats", session_id=session_id,
-                      status_code=response.status_code, response=response.json)
+                      status_code=response.status_code,
+                      response=response.json)
         return Response(content=serial.write_account_id_packet(-1),
                         headers={"cho-token": "no"},
                         status_code=200)
@@ -136,7 +137,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         response = await chats_client.get_members(chat["chat_id"])
         if response.status_code not in range(200, 300):
             logging.error("Failed to fetch chats", session_id=session_id,
-                          status_code=response.status_code, response=response.json)
+                          status_code=response.status_code,
+                          response=response.json)
             return Response(content=serial.write_account_id_packet(-1),
                             headers={"cho-token": "no"},
                             status_code=200)

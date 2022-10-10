@@ -452,6 +452,98 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
     return b""
 
 
+@packet_handler(serial.ClientPackets.CHANNEL_PART)
+async def handle_channel_part_request(ctx: Context, session: Session,
+                                      packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        channel_name = data_reader.read_string()
+
+    if channel_name in CLIENT_ONLY_CHANNELS:
+        return b""
+
+    users_client = UsersClient(ctx)
+    chats_client = ChatsClient(ctx)
+
+    response = await chats_client.get_chats(name=channel_name)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chats",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    chats: list[Chat] = response.json["data"]
+
+    if len(chats) != 1:
+        # logging.error("Failed to get chat",
+        #               channel_name=channel_name,
+        #               session_id=session["session_id"])
+        return b""
+
+    chat = chats[0]
+
+    # check if user is already in channel
+    response = await chats_client.get_members(chat["chat_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chat members",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    members: list[Member] = response.json["data"]
+
+    for member in members:
+        if member["account_id"] == session["account_id"]:
+            break
+    else:
+        logging.error("User attempted to leave channel they're not in",
+                      channel_name=channel_name,
+                      session_id=session["session_id"])
+        return b""
+
+    response = await chats_client.leave_chat(chat["chat_id"],
+                                             session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to leave chat",
+                      channel_name=channel_name,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    # send updated channel info (player count) to everyone that can see it
+    updated_channel_info = serial.write_channel_info_packet(channel=chat["name"],
+                                                            topic=chat["topic"],
+                                                            user_count=len(members) - 1)
+
+    response = await users_client.get_all_presences()
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all presences",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    presences: list[Presence] = response.json["data"]
+    for presence in presences:
+        # TODO: only if they have read privs
+
+        response = await users_client.enqueue_data(presence["session_id"],
+                                                   list(updated_channel_info))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return b""
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
