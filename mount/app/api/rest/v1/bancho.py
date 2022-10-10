@@ -242,6 +242,18 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         if is_restricted(other_presence["privileges"]):
             continue
 
+        response = await users_client.get_stats(other_presence["account_id"],
+                                                other_presence["game_mode"])
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get user stats",
+                          status_code=response.status_code, response=response.json)
+            response = Response(content=serial.write_account_id_packet(-1),
+                                headers={"cho-token": "no"},
+                                status_code=200)
+            return response
+
+        other_stats: dict[str, Any] = response.json["data"]
+
         global_rank = get_global_rank(other_presence["account_id"])
 
         response_buffer += serial.write_user_presence_packet(
@@ -255,6 +267,21 @@ async def login(request: Request, ctx: RequestContext = Depends()):
             latitude=other_presence["latitude"],
             longitude=other_presence["longitude"],
             global_rank=global_rank)
+
+        response_buffer += serial.write_user_stats_packet(
+            account_id=other_presence["account_id"],
+            action=other_presence["action"],
+            info_text=other_presence["info_text"],
+            map_md5=other_presence["map_md5"],
+            mods=other_presence["mods"],
+            mode=other_presence["game_mode"],
+            map_id=other_presence["map_id"],
+            ranked_score=other_stats["ranked_score"],
+            accuracy=other_stats["accuracy"],
+            play_count=other_stats["play_count"],
+            total_score=other_stats["total_score"],
+            global_rank=global_rank,
+            pp=other_stats["performance"])
 
     response_buffer += serial.write_notification_packet(
         message="Welcome to Akatsuki v2!")
