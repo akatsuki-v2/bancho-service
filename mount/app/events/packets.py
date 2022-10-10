@@ -354,6 +354,90 @@ async def handle_update_presence_filter_request(ctx: Context, session: Session,
 CLIENT_ONLY_CHANNELS = ("#hightlight", "#userlog")
 
 
+@packet_handler(serial.ClientPackets.SEND_PUBLIC_MESSAGE)
+async def handle_send_public_message_request(ctx: Context, session: Session,
+                                             packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        sender_name = data_reader.read_string()
+        message = data_reader.read_string()
+        recipient_name = data_reader.read_string()
+        sender_id = data_reader.read_int32()
+
+    message = message.strip()
+    if not message:
+        return b""
+
+    if recipient_name in CLIENT_ONLY_CHANNELS:
+        return b""
+
+    if len(message) > 1000:
+        logging.warning("User sent a message that was too long",
+                        session_id=session["session_id"],
+                        message=message)
+        return serial.write_notification_packet("Your message was not sent.\n"
+                                                "(it exceeded the 1K character limit)")
+
+    users_client = UsersClient(ctx)
+    chats_client = ChatsClient(ctx)
+
+    # TODO: instance channels will need to be handled differently
+    response = await chats_client.get_chats(name=recipient_name)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chat",
+                      name=recipient_name,
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    chats: list[Chat] = response.json["data"]
+    if not chats:
+        logging.warning("User sent a message to a non-existent chat",
+                        session_id=session["session_id"],
+                        recipient_name=recipient_name)
+        return b""
+
+    chat = chats[0]
+
+    response = await chats_client.get_members(chat["chat_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get chat members",
+                      chat_id=chat["chat_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    chat_members: list[Member] = response.json["data"]
+
+    # make sure sender is actually in the chats members
+    if not any(member["account_id"] == session["account_id"]
+               for member in chat_members):
+        logging.warning("User sent a message to a chat they are not in",
+                        session_id=session["session_id"],
+                        chat_id=chat["chat_id"])
+        return b""
+
+    data = serial.write_send_message_packet(sender=sender_name,
+                                            message=message,
+                                            recipient=recipient_name,
+                                            sender_id=sender_id)
+
+    for chat_member in chat_members:
+        if chat_member["session_id"] == session["session_id"]:
+            continue
+
+        response = await users_client.enqueue_data(chat_member["session_id"],
+                                                   data=list(data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=chat_member["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return b""
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
