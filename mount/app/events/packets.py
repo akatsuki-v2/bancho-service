@@ -364,6 +364,10 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
         recipient_name = data_reader.read_string()
         sender_id = data_reader.read_int32()
 
+        # TODO: not sure if these can change?
+        assert sender_name == ""
+        assert sender_id == 0
+
     message = message.strip()
     if not message:
         return b""
@@ -414,13 +418,23 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
                for member in chat_members):
         logging.warning("User sent a message to a chat they are not in",
                         session_id=session["session_id"],
-                        chat_id=chat["chat_id"])
+                        chat_id=chat["chat_id"], chat_name=chat["name"])
         return b""
 
-    data = serial.write_send_message_packet(sender=sender_name,
+    response = await users_client.get_account(session["account_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get account",
+                      account_id=session["account_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    account: Account = response.json["data"]
+
+    data = serial.write_send_message_packet(sender=account["username"],
                                             message=message,
                                             recipient=recipient_name,
-                                            sender_id=sender_id)
+                                            sender_id=account["account_id"])
 
     for chat_member in chat_members:
         if chat_member["session_id"] == session["session_id"]:
