@@ -544,7 +544,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     # send updated channel info (player count) to everyone that can see it
     updated_channel_info = serial.write_channel_info_packet(channel=chat["name"],
                                                             topic=chat["topic"],
-                                                            user_count=len(members))
+                                                            user_count=len(members) + 1)
 
     response = await users_client.get_all_presences()
     if response.status_code not in range(200, 300):
