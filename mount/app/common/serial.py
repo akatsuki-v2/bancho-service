@@ -92,7 +92,10 @@ class Reader:
     def stream_consumed(self) -> bool:
         return not self.remaining_data
 
-    def read_bytes(self, length: int) -> bytes:
+    def read_bytes(self, length: int = -1) -> bytes:
+        if length == -1:
+            length = len(self.remaining_data)
+
         raw_data = self.remaining_data[:length]
         self.remaining_data = self.remaining_data[length:]
         return raw_data
