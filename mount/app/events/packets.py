@@ -581,6 +581,41 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
     return b""
 
 
+@packet_handler(serial.ClientPackets.SPECTATE_FRAMES)
+async def handle_spectate_frames_request(ctx: Context, session: Session,
+                                         packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as frame_bundle_data:
+        data_reader = serial.Reader(frame_bundle_data)
+        frame_bundle_data = data_reader.read_bytes()
+
+    # TODO: validate that the data the user is sending is valid
+
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_spectators(session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get spectator",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    spectators = [UUID(session_id) for session_id in response.json["data"]]
+
+    data = serial.write_spectate_frames_packet(frame_bundle_data)
+
+    for spectator in spectators:
+        response = await users_client.enqueue_data(spectator, data=list(data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return b""
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
