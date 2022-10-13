@@ -1,4 +1,3 @@
-import random
 from typing import Awaitable
 from typing import Callable
 
@@ -30,9 +29,8 @@ async def handle_packet_event(ctx: Context, session: Session, packet_id: int,
 
     if packet_handler is None:
         if packet_id != serial.ClientPackets.LOGOUT:
-            rand_string = " " * random.randrange(0, 10)
             response_data = serial.write_notification_packet(
-                f"[N] {packet_name} ({packet_id}){rand_string}")
+                f"[Unhandled Packet] {packet_name} ({packet_id})")
         else:
             response_data = b""
 
@@ -43,12 +41,6 @@ async def handle_packet_event(ctx: Context, session: Session, packet_id: int,
                  length=len(packet_data))
 
     response_data = await packet_handler(ctx, session, packet_data)
-
-    if packet_id != serial.ClientPackets.LOGOUT:
-        rand_string = " " * random.randrange(0, 10)
-        response_data += serial.write_notification_packet(
-            f"[Y] {packet_name} ({packet_id}){rand_string}")
-
     return response_data
 
 
@@ -104,7 +96,7 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
                       response=response.json)
         return b""
 
-    chats = response.json["data"]
+    chats: list[Chat] = response.json["data"]
     for chat in chats:
         response = await chats_client.leave_chat(chat["chat_id"],
                                                  session["session_id"])
@@ -130,7 +122,9 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
 
     other_presences: list[Presence] = response.json["data"]
     for other_presence in other_presences:
-        # if presence["session_id"] == session["session_id"]:
+        # commented since we're already logged out.
+        # left here because it's logical
+        # if other_presence["session_id"] == session["session_id"]:
         #     continue
 
         response = await users_client.enqueue_data(other_presence["session_id"],
