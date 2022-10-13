@@ -529,6 +529,58 @@ async def handle_channel_part_request(ctx: Context, session: Session,
     return b""
 
 
+@packet_handler(serial.ClientPackets.START_SPECTATING)
+async def handle_start_spectating_request(ctx: Context, session: Session,
+                                          packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        target_id = data_reader.read_int32()
+
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_all_sessions(account_id=target_id)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all sessions",
+                      target_id=target_id,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    sessions: list[Session] = response.json["data"]
+
+    if len(sessions) != 1:
+        logging.error("Failed to get session",
+                      target_id=target_id,
+                      session_id=session["session_id"])
+        return b""
+
+    target_session = sessions[0]
+
+    response = await users_client.create_spectator(
+        host_session_id=target_session["session_id"],
+        spectator_session_id=session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to create spectator",
+                      target_id=target_id,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    data = serial.write_spectator_joined_packet(session["account_id"])
+    response = await users_client.enqueue_data(target_session["session_id"],
+                                               data=list(data))
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to enqueue data",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    return b""
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
