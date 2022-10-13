@@ -169,15 +169,6 @@ async def handle_request_game_mode_stats(ctx: Context, session: Session,
                       response=response.json)
         return b""
 
-    response = await users_client.get_stats(session["account_id"],
-                                            presence["game_mode"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get user stats",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
-        return b""
-
     stats: Stats = response.json["data"]
 
     return serial.write_user_stats_packet(
