@@ -9,6 +9,7 @@ class Score(TypedDict):
     score_id: int
     beatmap_md5: str
     account_id: int
+    username: str
     mode: Literal['osu', 'taiko', 'fruits', 'mania']
     mods: int
     score: int

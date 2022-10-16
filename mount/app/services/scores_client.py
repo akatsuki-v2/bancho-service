@@ -11,19 +11,21 @@ class ScoresClient:
 
     # scores
 
-    async def submit_score(self, beatmap_md5: str, account_id: int, mode: str,
-                           mods: int, score: int, performance: float, accuracy: float,
-                           max_combo: int, count_50s: int, count_100s: int,
-                           count_300s: int, count_gekis: int, count_katus: int,
-                           count_misses: int, grade: str, passed: bool, perfect: bool,
-                           seconds_elapsed: int, anticheat_flags: int,
-                           client_checksum: str, status: str) -> ServiceResponse:
+    async def submit_score(self, beatmap_md5: str, account_id: int, username: str,
+                           mode: str, mods: int, score: int, performance: float,
+                           accuracy: float, max_combo: int, count_50s: int,
+                           count_100s: int, count_300s: int, count_gekis: int,
+                           count_katus: int, count_misses: int, grade: str,
+                           passed: bool, perfect: bool, seconds_elapsed: int,
+                           anticheat_flags: int, client_checksum: str,
+                           status: str) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/scores",
             json={
                 "beatmap_md5": beatmap_md5,
                 "account_id": account_id,
+                "username": username,
                 "mode": mode,
                 "mods": mods,
                 "score": score,
