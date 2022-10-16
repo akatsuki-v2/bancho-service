@@ -85,6 +85,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     presences: list[Presence] = response.json["data"]
 
+    # TODO: allow this if the existing session has been active for a while,
+    # as a way to prevent ghosting sessions from being left open forever
     if len(presences) > 0:
         response = Response(content=(serial.write_notification_packet("Your account is already logged in.")
                                      + serial.write_account_id_packet(-1)),
