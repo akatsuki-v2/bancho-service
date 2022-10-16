@@ -1,5 +1,6 @@
 from typing import Awaitable
 from typing import Callable
+from uuid import UUID
 
 from app.common import logging
 from app.common import serial
@@ -9,6 +10,7 @@ from app.models.chats import Chat
 from app.models.members import Member
 from app.models.presences import Presence
 from app.models.sessions import Session
+from app.models.spectators import Spectator
 from app.models.stats import Stats
 from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
@@ -519,6 +521,199 @@ async def handle_channel_part_request(ctx: Context, session: Session,
 
         response = await users_client.enqueue_data(presence["session_id"],
                                                    list(updated_channel_info))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return b""
+
+
+@packet_handler(serial.ClientPackets.START_SPECTATING)
+async def handle_start_spectating_request(ctx: Context, session: Session,
+                                          packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as raw_data:
+        data_reader = serial.Reader(raw_data)
+        target_id = data_reader.read_int32()
+
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_all_sessions(account_id=target_id)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get all sessions",
+                      target_id=target_id,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    sessions: list[Session] = response.json["data"]
+
+    if len(sessions) != 1:
+        logging.error("Failed to get session",
+                      target_id=target_id,
+                      session_id=session["session_id"])
+        return b""
+
+    target_session = sessions[0]
+
+    response = await users_client.create_spectator(
+        host_session_id=target_session["session_id"],
+        session_id=session["session_id"],
+        account_id=session["account_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to create spectator",
+                      target_id=target_id,
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    data = serial.write_spectator_joined_packet(session["account_id"])
+    response = await users_client.enqueue_data(target_session["session_id"],
+                                               data=list(data))
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to enqueue data",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    response = await users_client.get_spectators(target_session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get spectators",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    spectators: list[Spectator] = response.json["data"]
+
+    response_buffer = bytearray()
+
+    data = serial.write_fellow_spectator_joined_packet(session["account_id"])
+    for spectator in spectators:
+        if spectator == session["session_id"]:
+            continue
+
+        # them to us
+        response_buffer += serial.write_fellow_spectator_joined_packet(
+            spectator["account_id"])
+
+        # us to them
+        response = await users_client.enqueue_data(spectator["session_id"],
+                                                   data=list(data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return bytes(response_buffer)
+
+
+@packet_handler(serial.ClientPackets.STOP_SPECTATING)
+async def handle_stop_spectating_request(ctx: Context, session: Session,
+                                         packet_data: bytes) -> bytes:
+    users_client = UsersClient(ctx)
+
+    # get the user we're spectating
+    response = await users_client.get_spectator_host(session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get spectator host",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    host_session_id = UUID(response.json["data"])
+
+    # stop spectating them
+    response = await users_client.delete_spectator(
+        host_session_id=host_session_id,
+        session_id=session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to delete spectator",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    # tell them we stopped spectating
+    data = serial.write_spectator_left_packet(session["account_id"])
+    response = await users_client.enqueue_data(host_session_id,
+                                               data=list(data))
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to enqueue data",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    # tell everyone else we stopped spectating
+    response = await users_client.get_spectators(host_session_id)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get spectators",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    spectators: list[Spectator] = response.json["data"]
+
+    response_buffer = bytearray()
+
+    data = serial.write_fellow_spectator_left_packet(session["account_id"])
+    for spectator in spectators:
+        if spectator == session["session_id"]:
+            continue
+
+        # them to us
+        response_buffer += serial.write_fellow_spectator_left_packet(
+            spectator["account_id"])
+
+        # us to them
+        response = await users_client.enqueue_data(spectator["session_id"],
+                                                   data=list(data))
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to enqueue data",
+                          session_id=session["session_id"],
+                          status=response.status_code,
+                          response=response.json)
+            return b""
+
+    return bytes(response_buffer)
+
+
+@packet_handler(serial.ClientPackets.SPECTATE_FRAMES)
+async def handle_spectate_frames_request(ctx: Context, session: Session,
+                                         packet_data: bytes) -> bytes:
+    with memoryview(packet_data) as frame_bundle_data:
+        data_reader = serial.Reader(frame_bundle_data)
+        frame_bundle_data = data_reader.read_bytes()
+
+    # TODO: validate that the data the user is sending is valid
+
+    users_client = UsersClient(ctx)
+
+    response = await users_client.get_spectators(session["session_id"])
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get spectator",
+                      session_id=session["session_id"],
+                      status=response.status_code,
+                      response=response.json)
+        return b""
+
+    spectators: list[Spectator] = response.json["data"]
+
+    data = serial.write_spectate_frames_packet(frame_bundle_data)
+
+    for spectator in spectators:
+        response = await users_client.enqueue_data(spectator["session_id"],
+                                                   data=list(data))
         if response.status_code not in range(200, 300):
             logging.error("Failed to enqueue data",
                           session_id=session["session_id"],

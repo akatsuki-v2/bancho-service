@@ -369,6 +369,35 @@ def write_silence_end_packet(remaining_sec: int) -> bytes:
     return write_packet(ServerPackets.SILENCE_END, data)
 
 
+def write_spectator_joined_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.SPECTATOR_JOINED, data)
+
+
+def write_spectator_left_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.SPECTATOR_LEFT, data)
+
+
+def write_spectate_frames_packet(raw_data: bytes) -> bytes:
+    return write_packet(ServerPackets.SPECTATE_FRAMES, raw_data)
+
+
+def write_spectator_cant_spectate_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.SPECTATOR_CANT_SPECTATE, data)
+
+
+def write_fellow_spectator_joined_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.FELLOW_SPECTATOR_JOINED, data)
+
+
+def write_fellow_spectator_left_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.FELLOW_SPECTATOR_LEFT, data)
+
+
 def write_user_logout_packet(user_id: int) -> bytes:
     data = pack_int32(user_id) + pack_uint8(0)
     return write_packet(ServerPackets.USER_LOGOUT, data)

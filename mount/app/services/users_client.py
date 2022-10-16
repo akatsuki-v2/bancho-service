@@ -315,7 +315,8 @@ class UsersClient:
 
     # queued packets
 
-    async def enqueue_data(self, session_id: UUID, data: list[int]) -> ServiceResponse:
+    async def enqueue_data(self, session_id: UUID, data: list[int]
+                           ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
@@ -327,5 +328,39 @@ class UsersClient:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
+        )
+        return response
+
+    # spectators
+
+    async def create_spectator(self, host_session_id: UUID, session_id: UUID,
+                               account_id: int) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="POST",
+            url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
+            json={"session_id": session_id,
+                  "account_id": account_id},
+        )
+        return response
+
+    async def delete_spectator(self, host_session_id: UUID, session_id: UUID
+                               ) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="DELETE",
+            url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators/{session_id}",
+        )
+        return response
+
+    async def get_spectators(self, host_session_id: UUID) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
+        )
+        return response
+
+    async def get_spectator_host(self, spectator_session_id: UUID) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions/{spectator_session_id}/spectating",
         )
         return response
