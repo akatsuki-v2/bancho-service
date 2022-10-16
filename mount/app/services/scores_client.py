@@ -13,7 +13,7 @@ class ScoresClient:
 
     # scores
 
-    async def submit_score(self, beatmap_id: int, account_id: int, mode: str,
+    async def submit_score(self, beatmap_md5: str, account_id: int, mode: str,
                            mods: int, score: int, performance: float, accuracy: float,
                            max_combo: int, count_50s: int, count_100s: int,
                            count_300s: int, count_gekis: int, count_katus: int,
@@ -24,7 +24,7 @@ class ScoresClient:
             method="POST",
             url=f"{SERVICE_URL}/v1/scores",
             json={
-                "beatmap_id": beatmap_id,
+                "beatmap_md5": beatmap_md5,
                 "account_id": account_id,
                 "mode": mode,
                 "mods": mods,
@@ -56,7 +56,7 @@ class ScoresClient:
         )
         return response
 
-    async def get_scores(self, beatmap_id: int | None = None,
+    async def get_scores(self, beatmap_md5: str | None = None,
                          mode: Literal['osu', 'taiko',
                                        'fruits', 'mania'] | None = None,
                          mods: int | None = None,
@@ -70,7 +70,7 @@ class ScoresClient:
             method="GET",
             url=f"{SERVICE_URL}/v1/scores",
             params={
-                "beatmap_id": beatmap_id,
+                "beatmap_md5": beatmap_md5,
                 "mode": mode,
                 "mods": mods,
                 "passed": passed,
