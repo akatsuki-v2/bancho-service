@@ -108,24 +108,34 @@ def osu_api_ranked_status_to_getscores(status: int) -> int:
     }[status]
 
 
+def write_leaderboard_score(score: Score, rank: int) -> bytes:
+    timestamp = int(datetime.fromisoformat(
+        score.pop("created_at")).timestamp())
+    perfect = "1" if score.pop("perfect") else "0"
+
+    return (
+        "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
+        "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
+        "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
+    ).format(**dict(score), created_at=timestamp, rank=rank,
+             perfect=perfect, has_replay="1").encode() + b"\n"
+
+
 # TODO: should this live in serial?
 def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
                       personal_best_score: Score | None) -> bytes:
-    # {offset}\n{beatmap_name}\n{beatmap_rating}
-    # {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
-    # ... more of those score rows ^
     response_buffer = bytearray()
 
-    # {ranked_status}|{serv_has_osz2}|{beatmap_id}|{beatmap_set_id}|{len(scores)}|{featured_artist_track_id}|{featured_artist_license_text}
-    response_buffer += "|".join((
-        str(osu_api_ranked_status_to_getscores(beatmap['ranked_status'])),
-        "False",  # TODO: whether we have the osz2 for this beatmap
-        str(beatmap['beatmap_id']),
-        str(beatmap['set_id']),
-        str(len(scores)),
-        str(0),  # TODO: featured_artist_track_id
-        "",  # TODO: featured_artist_license_text
-    )).encode() + b"\n"
+    response_buffer += (
+        "{ranked_status}|{serv_has_osz2}|{beatmap_id}|{beatmap_set_id}|"
+        "{score_count}|{featured_artist_track_id}|{featured_artist_license_text}"
+    ).format(ranked_status=osu_api_ranked_status_to_getscores(beatmap["ranked_status"]),
+             serv_has_osz2="0",
+             beatmap_id=beatmap["beatmap_id"],
+             beatmap_set_id=beatmap["set_id"],
+             score_count=len(scores),
+             featured_artist_track_id="0",
+             featured_artist_license_text="").encode() + b"\n"
 
     # TODO: make these real values
     beatmap_offset = 0
@@ -134,33 +144,14 @@ def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
 
     response_buffer += f"{beatmap_offset}\n{beatmap_name}\n{beatmap_rating}\n".encode()
 
-    # TODO: personal best score
     if personal_best_score is not None:
-        timestamp = int(datetime.fromisoformat(
-            personal_best_score.pop("created_at")).timestamp())
-        perfect = "1" if personal_best_score.pop("perfect") else "0"
-
-        response_buffer += (
-            "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
-            "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
-            "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
-        ).format(**dict(personal_best_score), created_at=timestamp, rank=12345,
-                 perfect=perfect, has_replay="1").encode() + b"\n"
+        response_buffer += write_leaderboard_score(personal_best_score,
+                                                   rank=12345)
     else:
         response_buffer += b"\n"
 
     for idx, score in enumerate(scores):
-        # {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
-        timestamp = int(datetime.fromisoformat(
-            score.pop("created_at")).timestamp())
-        perfect = "1" if score.pop("perfect") else "0"
-
-        response_buffer += (
-            "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
-            "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
-            "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
-        ).format(**dict(score), created_at=timestamp, rank=idx + 1,
-                 perfect=perfect, has_replay="1").encode() + b"\n"
+        response_buffer += write_leaderboard_score(score, rank=idx + 1)
 
     return bytes(response_buffer)
 
