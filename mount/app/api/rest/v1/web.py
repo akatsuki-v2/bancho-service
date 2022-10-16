@@ -119,7 +119,7 @@ def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
     # {ranked_status}|{serv_has_osz2}|{beatmap_id}|{beatmap_set_id}|{len(scores)}|{featured_artist_track_id}|{featured_artist_license_text}
     response_buffer += "|".join((
         str(osu_api_ranked_status_to_getscores(beatmap['ranked_status'])),
-        "false",  # TODO: whether we have the osz2 for this beatmap
+        "False",  # TODO: whether we have the osz2 for this beatmap
         str(beatmap['beatmap_id']),
         str(beatmap['set_id']),
         str(len(scores)),
@@ -129,37 +129,38 @@ def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
 
     # TODO: make these real values
     beatmap_offset = 0
-    beatmap_name = beatmap['version']
-    beatmap_rating = 0.0
+    beatmap_name = beatmap['version']  # NOTE: `|` is replaced by `\n`
+    beatmap_rating = 10.0
 
     response_buffer += f"{beatmap_offset}\n{beatmap_name}\n{beatmap_rating}\n".encode()
 
     # TODO: personal best score
     if personal_best_score is not None:
         timestamp = int(datetime.fromisoformat(
-            personal_best_score["created_at"]).timestamp())
+            personal_best_score.pop("created_at")).timestamp())
+        perfect = "1" if personal_best_score.pop("perfect") else "0"
 
         response_buffer += (
             "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
             "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
             "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
-            # TODO
         ).format(**dict(personal_best_score), created_at=timestamp, rank=12345,
-                 has_replay="false").encode() + b"\n"
+                 perfect=perfect, has_replay="1").encode() + b"\n"
     else:
         response_buffer += b"\n"
 
     for idx, score in enumerate(scores):
         # {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
         timestamp = int(datetime.fromisoformat(
-            score["created_at"]).timestamp())
+            score.pop("created_at")).timestamp())
+        perfect = "1" if score.pop("perfect") else "0"
 
         response_buffer += (
             "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
             "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
-            "{mods}|{account_id}|{created_at}|{has_replay}"
+            "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
         ).format(**dict(score), created_at=timestamp, rank=idx + 1,
-                 has_replay="false").encode() + b"\n"
+                 perfect=perfect, has_replay="1").encode() + b"\n"
 
     return bytes(response_buffer)
 
