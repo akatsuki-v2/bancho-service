@@ -57,6 +57,7 @@ class ScoresClient:
         return response
 
     async def get_scores(self, beatmap_md5: str | None = None,
+                         account_id: int | None = None,
                          mode: str | None = None,
                          mods: int | None = None,
                          passed: bool | None = None,
@@ -70,6 +71,7 @@ class ScoresClient:
             url=f"{SERVICE_URL}/v1/scores",
             params={
                 "beatmap_md5": beatmap_md5,
+                "account_id": account_id,
                 "mode": mode,
                 "mods": mods,
                 "passed": passed,
