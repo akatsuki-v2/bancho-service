@@ -333,20 +333,21 @@ class UsersClient:
 
     # spectators
 
-    async def create_spectator(self, host_session_id: UUID, spectator_session_id: UUID
-                               ) -> ServiceResponse:
+    async def create_spectator(self, host_session_id: UUID, session_id: UUID,
+                               account_id: int) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
-            json={"spectator_session_id": spectator_session_id},
+            json={"session_id": session_id,
+                  "account_id": account_id},
         )
         return response
 
-    async def delete_spectator(self, host_session_id: UUID, spectator_session_id: UUID
+    async def delete_spectator(self, host_session_id: UUID, session_id: UUID
                                ) -> ServiceResponse:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
-            url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators/{spectator_session_id}",
+            url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators/{session_id}",
         )
         return response
 
@@ -354,5 +355,12 @@ class UsersClient:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
+        )
+        return response
+
+    async def get_spectator_host(self, spectator_session_id: UUID) -> ServiceResponse:
+        response = await self.ctx.http_client.service_call(
+            method="GET",
+            url=f"{SERVICE_URL}/v1/sessions/{spectator_session_id}/spectating",
         )
         return response

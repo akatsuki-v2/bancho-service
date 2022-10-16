@@ -388,6 +388,16 @@ def write_spectator_cant_spectate_packet(user_id: int) -> bytes:
     return write_packet(ServerPackets.SPECTATOR_CANT_SPECTATE, data)
 
 
+def write_fellow_spectator_joined_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.FELLOW_SPECTATOR_JOINED, data)
+
+
+def write_fellow_spectator_left_packet(user_id: int) -> bytes:
+    data = pack_int32(user_id)
+    return write_packet(ServerPackets.FELLOW_SPECTATOR_LEFT, data)
+
+
 def write_user_logout_packet(user_id: int) -> bytes:
     data = pack_int32(user_id) + pack_uint8(0)
     return write_packet(ServerPackets.USER_LOGOUT, data)
