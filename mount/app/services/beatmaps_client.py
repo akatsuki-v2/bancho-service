@@ -1,7 +1,3 @@
-from datetime import datetime
-from typing import Literal
-from uuid import UUID
-
 from app.common import settings
 from app.common.context import Context
 from app.services.http_client import ServiceResponse
@@ -24,8 +20,7 @@ class BeatmapsClient:
 
     async def get_beatmaps(self, set_id: int | None = None,
                            md5_hash: str | None = None,
-                           mode: Literal['osu', 'taiko',
-                                         'fruits', 'mania'] | None = None,
+                           mode: str | None = None,
                            ranked_status: int | None = None,
                            status: str | None = None,
                            page: int = 1,

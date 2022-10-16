@@ -1,5 +1,3 @@
-from typing import Literal
-
 from app.common import settings
 from app.common.context import Context
 from app.services.http_client import ServiceResponse
@@ -57,8 +55,7 @@ class ScoresClient:
         return response
 
     async def get_scores(self, beatmap_md5: str | None = None,
-                         mode: Literal['osu', 'taiko',
-                                       'fruits', 'mania'] | None = None,
+                         mode: str | None = None,
                          mods: int | None = None,
                          passed: bool | None = None,
                          perfect: bool | None = None,
