@@ -6,12 +6,14 @@ from app.common import logging
 from app.common import serial
 from app.common.context import Context
 from app.models.accounts import Account
+from app.models.beatmaps import Beatmap
 from app.models.chats import Chat
 from app.models.members import Member
 from app.models.presences import Presence
 from app.models.sessions import Session
 from app.models.spectators import Spectator
 from app.models.stats import Stats
+from app.services.beatmaps_client import BeatmapsClient
 from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
 

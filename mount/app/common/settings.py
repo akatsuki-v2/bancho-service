@@ -12,3 +12,5 @@ APP_COMPONENT = os.environ["APP_COMPONENT"]
 APP_HOST = os.environ["APP_HOST"]
 APP_PORT = int(os.environ["APP_PORT"])
 LOG_LEVEL = int(os.environ["LOG_LEVEL"])
+
+DEFAULT_PAGE_SIZE = int(os.environ["DEFAULT_PAGE_SIZE"])
