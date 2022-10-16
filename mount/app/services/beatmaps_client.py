@@ -23,6 +23,7 @@ class BeatmapsClient:
         return response
 
     async def get_beatmaps(self, set_id: int | None = None,
+                           md5_hash: str | None = None,
                            mode: Literal['osu', 'taiko',
                                          'fruits', 'mania'] | None = None,
                            ranked_status: int | None = None,
@@ -35,6 +36,7 @@ class BeatmapsClient:
             url=f"{SERVICE_URL}/v1/beatmaps",
             params={
                 "set_id": set_id,
+                "md5_hash": md5_hash,
                 "mode": mode,
                 "ranked_status": ranked_status,
                 "status":  status,
