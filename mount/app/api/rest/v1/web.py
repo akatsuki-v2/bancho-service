@@ -1,7 +1,17 @@
+from datetime import datetime
+from enum import IntEnum
+from typing import Sequence
+
+from app.api.rest.context import RequestContext
+from app.common import logging
+from app.models.beatmaps import Beatmap
+from app.models.scores import Score
+from app.services.beatmaps_client import BeatmapsClient
+from app.services.scores_client import ScoresClient
+from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Header
-from fastapi import Request
+from fastapi import Query
 from fastapi import Response
 
 router = APIRouter()
@@ -61,8 +71,175 @@ router = APIRouter()
 # async def submit_modular_selector(): ...
 
 
-# @router.get("/web/osu-osz2-getscores.php")
-# async def get_scores(): ...
+class LeaderboardType(IntEnum):
+    LOCAL = 0
+    TOP = 1
+    MODS = 2
+    FRIENDS = 3
+    COUNTRY = 4
+
+
+class OsuGameMode(IntEnum):
+    STANDARD = 0
+    TAIKO = 1
+    CATCH_THE_BEAT = 2
+    MANIA = 3
+
+
+# TODO: not sure about this
+def mode_int_to_string(mode: int) -> str:
+    return {
+        0: "osu",
+        1: "taiko",
+        2: "fruits",
+        3: "mania",
+    }[mode]
+
+
+def osu_api_ranked_status_to_getscores(status: int) -> int:
+    return {
+        -2: 0,  # graveyard -> pending
+        -1: 0,  # wip -> pending
+        0: 0,  # pending -> pending
+        1: 2,  # ranked -> ranked
+        2: 3,  # approved -> approved
+        3: 4,  # qualified -> qualified
+        4: 5,  # loved -> loved
+    }[status]
+
+
+# TODO: should this live in serial?
+def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
+                      personal_best_score: Score | None) -> bytes:
+    # {offset}\n{beatmap_name}\n{beatmap_rating}
+    # {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    # ... more of those score rows ^
+    response_buffer = bytearray()
+
+    # {ranked_status}|{serv_has_osz2}|{beatmap_id}|{beatmap_set_id}|{len(scores)}|{featured_artist_track_id}|{featured_artist_license_text}
+    response_buffer += "|".join((
+        str(osu_api_ranked_status_to_getscores(beatmap['ranked_status'])),
+        "false",  # TODO: whether we have the osz2 for this beatmap
+        str(beatmap['beatmap_id']),
+        str(beatmap['set_id']),
+        str(len(scores)),
+        str(0),  # TODO: featured_artist_track_id
+        "",  # TODO: featured_artist_license_text
+    )).encode() + b"\n"
+
+    # TODO: make these real values
+    beatmap_offset = 0
+    beatmap_name = beatmap['version']
+    beatmap_rating = 0.0
+
+    response_buffer += f"{beatmap_offset}\n{beatmap_name}\n{beatmap_rating}\n".encode()
+
+    # TODO: personal best score
+    if personal_best_score is not None:
+        timestamp = int(datetime.fromisoformat(
+            personal_best_score["created_at"]).timestamp())
+
+        response_buffer += (
+            "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
+            "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
+            "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
+            # TODO
+        ).format(**dict(personal_best_score), created_at=timestamp, rank=12345,
+                 has_replay="false").encode() + b"\n"
+    else:
+        response_buffer += b"\n"
+
+    for idx, score in enumerate(scores):
+        # {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+        timestamp = int(datetime.fromisoformat(
+            score["created_at"]).timestamp())
+
+        response_buffer += (
+            "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
+            "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
+            "{mods}|{account_id}|{created_at}|{has_replay}"
+        ).format(**dict(score), created_at=timestamp, rank=idx + 1,
+                 has_replay="false").encode() + b"\n"
+
+    return bytes(response_buffer)
+
+
+@router.get("/v1/web/osu-osz2-getscores.php")
+async def get_scores(
+    username: str = Query(..., alias="us"),
+    password: str = Query(..., alias="ha"),
+    requesting_from_editor_song_select: bool = Query(..., alias="s"),
+    leaderboard_version: int = Query(..., alias="vv"),
+    leaderboard_type: LeaderboardType = Query(..., alias="v"),
+    beatmap_md5: str = Query(..., alias="c", min_length=32, max_length=32),
+    beatmap_file_name: str = Query(..., alias="f"),
+    mode: OsuGameMode = Query(..., alias="m"),
+    map_set_id: int = Query(..., alias="i", ge=-1, le=2_147_483_647),
+    mods: int = Query(..., alias="mods", ge=0, le=2_147_483_647),
+    map_package_hash: str = Query(..., alias="h"),
+    aqn_files_found: bool = Query(..., alias="a"),
+    ctx: RequestContext = Depends(),
+):
+    beatmaps_client = BeatmapsClient(ctx)
+    scores_client = ScoresClient(ctx)
+    users_client = UsersClient(ctx)
+
+    # TODO: validate the user's credentials (username, password)
+
+    mode_str = mode_int_to_string(mode)
+
+    response = await beatmaps_client.get_beatmaps(md5_hash=beatmap_md5,
+                                                  mode=mode_str, page_size=1)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get beatmaps",
+                      status=response.status_code,
+                      response=response.json)
+        return Response(content=b"-1|false")
+
+    beatmaps: list[Beatmap] = response.json["data"]
+    if len(beatmaps) == 0:
+        logging.error("No beatmaps found",
+                      status=response.status_code,
+                      response=response.json)
+        return Response(content=b"-1|false")
+
+    beatmap: Beatmap = beatmaps[0]
+
+    response = await scores_client.get_scores(beatmap_md5=beatmap_md5,
+                                              mode=mode_str,
+                                              passed=True, page_size=50)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get scores",
+                      status=response.status_code,
+                      response=response.json)
+        return Response(content=b"-1|false")
+
+    scores: list[Score] = response.json["data"]
+
+    response = await scores_client.get_scores(beatmap_md5=beatmap_md5,
+                                              account_id=21,
+                                              mode=mode_str,
+                                              passed=True, page_size=50)
+    if response.status_code not in range(200, 300):
+        logging.error("Failed to get scores",
+                      status=response.status_code,
+                      response=response.json)
+        return Response(content=b"-1|false")
+
+    personal_best_scores: list[Score] = response.json["data"]
+
+    if len(personal_best_scores) != 0:
+        if len(personal_best_scores) != 1:  # temp
+            logging.error("Got more than one score for a user",
+                          scores=personal_best_scores)
+            return Response(content=b"-1|false")
+
+        personal_best_score: Score | None = personal_best_scores[0]
+    else:
+        personal_best_score = None
+
+    response_buffer = write_leaderboard(beatmap, scores, personal_best_score)
+    return Response(content=response_buffer, status_code=200)
 
 
 # @router.get("/web/osu-getreplay.php")
