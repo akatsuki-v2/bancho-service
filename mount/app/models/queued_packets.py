@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import TypedDict
+
+from . import BaseModel
 
 
-class QueuedPacket(TypedDict):
+class QueuedPacket(BaseModel):
     data: list[int]
     created_at: datetime

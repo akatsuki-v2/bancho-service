@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import TypedDict
 from uuid import UUID
 
+from . import BaseModel
 
-class Member(TypedDict):
+
+class Member(BaseModel):
     session_id: UUID
     account_id: int
     chat_id: int

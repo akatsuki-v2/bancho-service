@@ -1,6 +1,7 @@
 from enum import IntEnum
-from typing import TypedDict
 from uuid import UUID
+
+from . import BaseModel
 
 
 class Action(IntEnum):
@@ -20,7 +21,7 @@ class Action(IntEnum):
     OSU_DIRECT = 13
 
 
-class Presence(TypedDict):
+class Presence(BaseModel):
     session_id: UUID
     game_mode: int
     account_id: int

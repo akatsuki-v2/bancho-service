@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import TypedDict
 
+from . import BaseModel
 from . import Status
 
 
-class Account(TypedDict):
+class Account(BaseModel):
     account_id: int
     username: str
     safe_username: str  # NOTE: generated column

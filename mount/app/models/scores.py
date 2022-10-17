@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Literal
-from typing import TypedDict
 
-from . import Status
+from app.models import BaseModel
+from app.models import Status
 
 
-class Score(TypedDict):
+class Score(BaseModel):
     score_id: int
     beatmap_md5: str
     account_id: int

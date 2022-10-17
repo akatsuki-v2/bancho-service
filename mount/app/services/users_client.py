@@ -1,8 +1,16 @@
 from datetime import datetime
 from uuid import UUID
 
+from app.common import logging
 from app.common.context import Context
+from app.models.accounts import Account
+from app.models.presences import Presence
 from app.services.http_client import ServiceResponse
+
+from mount.app.models.queued_packets import QueuedPacket
+from mount.app.models.sessions import Session
+from mount.app.models.spectators import Spectator
+from mount.app.models.stats import Stats
 
 SERVICE_URL = "http://users-service"
 
@@ -14,7 +22,7 @@ class UsersClient:
     # accounts
 
     async def sign_up(self, username: str, password_md5: str,
-                      email_address: str, country: str) -> ServiceResponse:
+                      email_address: str, country: str) -> Account | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/accounts",
@@ -25,38 +33,68 @@ class UsersClient:
                 "country": country,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to sign up",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_accounts(self) -> ServiceResponse:
+        return Account(**response.json['data'])
+
+    async def get_accounts(self) -> list[Account] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/accounts",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get accounts",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_account(self, account_id: int) -> ServiceResponse:
+        return [Account(**rec) for rec in response.json['data']]
+
+    async def get_account(self, account_id: int) -> Account | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get account",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Account(**response.json['data'])
 
     async def partial_update_account(self, account_id: int,
                                      json: dict  # TODO: model?
-                                     ) -> ServiceResponse:
+                                     ) -> Account | None:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}",
             json=json,
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to update account",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def delete_account(self, account_id: int) -> ServiceResponse:
+        return Account(**response.json['data'])
+
+    async def delete_account(self, account_id: int) -> Account | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to delete account",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Account(**response.json['data'])
 
     # stats
 
@@ -76,7 +114,7 @@ class UsersClient:
                            x_count: int,
                            sh_count: int,
                            s_count: int,
-                           a_count: int):
+                           a_count: int) -> Stats | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats",
@@ -98,43 +136,71 @@ class UsersClient:
                 "a_count": a_count,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to create stats",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_stats(self, account_id: int, game_mode: int) -> ServiceResponse:
+        return Stats(**response.json['data'])
+
+    async def get_stats(self, account_id: int, game_mode: int) -> Stats | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get stats",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_all_account_stats(self, account_id: int) -> ServiceResponse:
+        return Stats(**response.json['data'])
+
+    async def get_all_account_stats(self, account_id: int) -> list[Stats] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get all account stats",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return [Stats(**rec) for rec in response.json['data']]
 
     async def partial_update_stats(self, account_id: int, game_mode: int,
                                    json: dict  # TODO: model?
-                                   ) -> ServiceResponse:
+                                   ) -> Stats | None:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
             json=json,
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to update stats",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def delete_stats(self, account_id: int, game_mode: int) -> ServiceResponse:
+        return Stats(**response.json['data'])
+
+    async def delete_stats(self, account_id: int, game_mode: int) -> Stats | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to delete stats",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
     # sessions
 
     async def log_in(self, identifier: str, passphrase: str,
-                     user_agent: str) -> ServiceResponse:
+                     user_agent: str) -> Session | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions",
@@ -144,24 +210,42 @@ class UsersClient:
                 "user_agent": user_agent,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to log in",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def log_out(self, session_id: UUID) -> ServiceResponse:
+        return Session(**response.json['data'])
+
+    async def log_out(self, session_id: UUID) -> Session | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to log out",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_session(self, session_id: UUID) -> ServiceResponse:
+        return Session(**response.json['data'])
+
+    async def get_session(self, session_id: UUID) -> Session | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get session",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Session(**response.json['data'])
 
     async def get_all_sessions(self, account_id: int | None = None,
-                               user_agent: str | None = None) -> ServiceResponse:
+                               user_agent: str | None = None) -> list[Session] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions",
@@ -170,11 +254,17 @@ class UsersClient:
                 "user_agent": user_agent,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get all sessions",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return [Session(**rec) for rec in response.json['data']]
 
     async def partial_update_session(self, session_id: UUID,
                                      expires_at: datetime | None,
-                                     ) -> ServiceResponse:
+                                     ) -> Session | None:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
@@ -182,7 +272,13 @@ class UsersClient:
                 "expires_at": expires_at.isoformat() if expires_at else None,
             }
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to update session",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Session(**response.json['data'])
 
     # presence
 
@@ -202,7 +298,7 @@ class UsersClient:
                               utc_offset: int,
                               display_city: bool,
                               pm_private: bool,
-                              ) -> ServiceResponse:
+                              ) -> Presence | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/presences",
@@ -227,14 +323,26 @@ class UsersClient:
                 "pm_private": pm_private,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to create presence",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_presence(self, session_id: UUID) -> ServiceResponse:
+        return Presence(**response.json['data'])
+
+    async def get_presence(self, session_id: UUID) -> Presence | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get presence",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Presence(**response.json['data'])
 
     async def get_all_presences(self, game_mode: int | None = None,
                                 account_id: int | None = None,
@@ -246,7 +354,7 @@ class UsersClient:
                                 utc_offset: int | None = None,
                                 display_city: bool | None = None,
                                 pm_private: bool | None = None,
-                                ) -> ServiceResponse:
+                                ) -> list[Presence] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/presences",
@@ -262,7 +370,13 @@ class UsersClient:
                 "pm_private": pm_private,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get all presences",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return [Presence(**rec) for rec in response.json['data']]
 
     async def partial_update_presence(self, session_id: UUID,
                                       game_mode: int | None = None,
@@ -281,7 +395,7 @@ class UsersClient:
                                       utc_offset: int | None = None,
                                       display_city: bool | None = None,
                                       pm_private: bool | None = None,
-                                      ) -> ServiceResponse:
+                                      ) -> Presence | None:
         response = await self.ctx.http_client.service_call(
             method="PATCH",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
@@ -304,63 +418,108 @@ class UsersClient:
                 "pm_private": pm_private,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to update presence",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def delete_presence(self, session_id: UUID) -> ServiceResponse:
+        return Presence(**response.json['data'])
+
+    async def delete_presence(self, session_id: UUID) -> Presence | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to delete presence",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Presence(**response.json['data'])
 
     # queued packets
 
-    async def enqueue_data(self, session_id: UUID, data: list[int]
-                           ) -> ServiceResponse:
+    # TODO: this returning bool is inconsistent
+    # we should probably have a ServiceError class to differentiate from
+    # returning nothing
+    async def enqueue_packet(self, session_id: UUID, data: list[int]
+                             ) -> bool:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
             json={"data": data},
         )
-        return response
+        return response.status_code in range(200, 300)
 
-    async def deqeue_all_data(self, session_id: UUID) -> ServiceResponse:
+    async def deqeue_all_packets(self, session_id: UUID) -> list[QueuedPacket] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to dequeue all packets",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return [QueuedPacket(**rec) for rec in response.json['data']]
 
     # spectators
 
     async def create_spectator(self, host_session_id: UUID, session_id: UUID,
-                               account_id: int) -> ServiceResponse:
+                               account_id: int) -> Spectator | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
             json={"session_id": session_id,
                   "account_id": account_id},
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to create spectator",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Spectator(**response.json['data'])
 
     async def delete_spectator(self, host_session_id: UUID, session_id: UUID
-                               ) -> ServiceResponse:
+                               ) -> Spectator | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators/{session_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to delete spectator",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_spectators(self, host_session_id: UUID) -> ServiceResponse:
+        return Spectator(**response.json['data'])
+
+    async def get_spectators(self, host_session_id: UUID) -> list[Spectator] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get spectators",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_spectator_host(self, spectator_session_id: UUID) -> ServiceResponse:
+        return [Spectator(**rec) for rec in response.json['data']]
+
+    async def get_spectator_host(self, spectator_session_id: UUID) -> UUID | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/sessions/{spectator_session_id}/spectating",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get spectator host",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return UUID(response.json['data'])

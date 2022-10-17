@@ -180,57 +180,31 @@ async def get_scores(
 
     mode_str = mode_int_to_string(mode)
 
-    response = await beatmaps_client.get_beatmaps(md5_hash=beatmap_md5,
+    beatmaps = await beatmaps_client.get_beatmaps(md5_hash=beatmap_md5,
                                                   mode=mode_str, page_size=1)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get beatmaps",
-                      status=response.status_code,
-                      response=response.json)
+    if beatmaps is None:
         return Response(content=b"-1|false")
 
-    beatmaps: list[Beatmap] = response.json["data"]
     if len(beatmaps) == 0:
-        logging.error("No beatmaps found",
-                      status=response.status_code,
-                      response=response.json)
         return Response(content=b"-1|false")
 
-    beatmap: Beatmap = beatmaps[0]
+    beatmap = beatmaps[0]
 
-    response = await scores_client.get_scores(beatmap_md5=beatmap_md5,
-                                              mode=mode_str,
-                                              passed=True, page_size=50)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get scores",
-                      status=response.status_code,
-                      response=response.json)
+    scores = await scores_client.get_scores(beatmap_md5=beatmap_md5,
+                                            mode=mode_str, passed=True,
+                                            page_size=50)
+    if scores is None:
         return Response(content=b"-1|false")
 
-    scores: list[Score] = response.json["data"]
-
-    response = await scores_client.get_scores(beatmap_md5=beatmap_md5,
-                                              account_id=21,
-                                              mode=mode_str,
-                                              passed=True, page_size=50)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get scores",
-                      status=response.status_code,
-                      response=response.json)
+    scores = await scores_client.get_scores(beatmap_md5=beatmap_md5,
+                                            account_id=21, mode=mode_str,
+                                            passed=True, page_size=50)
+    if scores is None:
         return Response(content=b"-1|false")
 
-    personal_best_scores: list[Score] = response.json["data"]
+    personal_best = scores[0] if len(scores) > 0 else None
 
-    if len(personal_best_scores) != 0:
-        if len(personal_best_scores) != 1:  # temp
-            logging.error("Got more than one score for a user",
-                          scores=personal_best_scores)
-            return Response(content=b"-1|false")
-
-        personal_best_score: Score | None = personal_best_scores[0]
-    else:
-        personal_best_score = None
-
-    response_buffer = write_leaderboard(beatmap, scores, personal_best_score)
+    response_buffer = write_leaderboard(beatmap, scores, personal_best)
     return Response(content=response_buffer, status_code=200)
 
 

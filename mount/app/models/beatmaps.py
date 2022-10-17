@@ -1,22 +1,12 @@
 from datetime import datetime
-from enum import IntEnum
 from typing import Literal
-from typing import TypedDict
 
+from . import BaseModel
+from . import RankedStatus
 from . import Status
 
 
-class RankedStatus(IntEnum):
-    GRAVEYARD = -2
-    WORK_IN_PROGRESS = -1
-    PENDING = 0
-    RANKED = 1
-    APPROVED = 2
-    QUALIFIED = 3
-    LOVED = 4
-
-
-class Beatmap(TypedDict):
+class Beatmap(BaseModel):
     beatmap_id: int
     md5_hash: str
     set_id: int

@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import TypedDict
 from uuid import UUID
 
+from . import BaseModel
+
 
 class LoginData(TypedDict):
     username: str
@@ -17,7 +19,7 @@ class LoginData(TypedDict):
     disk_signature_md5: str
 
 
-class Session(TypedDict):
+class Session(BaseModel):
     session_id: UUID
     account_id: int
     user_agent: str

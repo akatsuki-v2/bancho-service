@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import TypedDict
 
+from app.models import BaseModel
 from app.models import Status
 
 
-class Chat(TypedDict):
+class Chat(BaseModel):
     chat_id: int
     name: str
     topic: str

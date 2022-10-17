@@ -76,14 +76,11 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     chats_client = ChatsClient(ctx)
 
     # make sure this user isn't already logged in
-    response = await users_client.get_all_presences(username=login_data["username"])
-    if response.status_code not in range(200, 300):
-        response = Response(content=serial.write_account_id_packet(-1),
-                            headers={"cho-token": "no"},
-                            status_code=200)
-        return response
-
-    presences: list[Presence] = response.json["data"]
+    presences = await users_client.get_all_presences(username=login_data["username"])
+    if presences is None:
+        return Response(content=serial.write_account_id_packet(-1),
+                        headers={"cho-token": "no"},
+                        status_code=200)
 
     # TODO: allow this if the existing session has been active for a while,
     # as a way to prevent ghosting sessions from being left open forever
@@ -95,17 +92,17 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         return response
 
     # create user session
-    response = await users_client.log_in(login_data["username"],
-                                         login_data["password_md5"],
-                                         user_agent="osu!")
-    if response.status_code not in range(200, 300):
+    session = await users_client.log_in(login_data["username"],
+                                        login_data["password_md5"],
+                                        user_agent="osu!")
+    if session is None:
         response = Response(content=serial.write_account_id_packet(-1),
                             headers={"cho-token": "no"},
                             status_code=200)
         return response
 
-    session_id = UUID(response.json["data"]["session_id"])
-    account_id: int = response.json["data"]["account_id"]
+    session_id = session.session_id
+    account_id = session.account_id
 
     # TODO: privileges
     privileges = 2_147_483_647
@@ -121,35 +118,25 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     response_buffer += serial.write_account_id_packet(account_id)
     response_buffer += serial.write_privileges_packet(privileges)
 
-    response = await chats_client.get_chats()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to fetch chats", session_id=session_id,
-                      status_code=response.status_code,
-                      response=response.json)
+    chats = await chats_client.get_chats()
+    if chats is None:
         return Response(content=serial.write_account_id_packet(-1),
                         headers={"cho-token": "no"},
                         status_code=200)
 
-    chats: list[dict[str, Any]] = response.json["data"]
-
     for chat in chats:
-        if chat["name"] == "#lobby":
+        if chat.name == "#lobby":
             continue
 
-        response = await chats_client.get_members(chat["chat_id"])
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to fetch chats", session_id=session_id,
-                          status_code=response.status_code,
-                          response=response.json)
+        members = await chats_client.get_members(chat.chat_id)
+        if members is None:
             return Response(content=serial.write_account_id_packet(-1),
                             headers={"cho-token": "no"},
                             status_code=200)
 
-        members: list[dict[str, Any]] = response.json["data"]
-
         response_buffer += serial.write_channel_info_packet(
-            channel=chat["name"],
-            topic=chat["topic"],
+            channel=chat.name,
+            topic=chat.topic,
             user_count=len(members),
         )
 
@@ -180,7 +167,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         return 0
 
     # create user presence
-    response = await users_client.create_presence(
+    presence = await users_client.create_presence(
         session_id,
         game_mode=0,
         account_id=account_id,
@@ -198,28 +185,20 @@ async def login(request: Request, ctx: RequestContext = Depends()):
         utc_offset=login_data["utc_offset"],
         display_city=login_data["display_city"],
         pm_private=login_data["pm_private"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to create user presence", session_id=session_id,
-                      status_code=response.status_code, response=response.json)
-        response = Response(content=serial.write_account_id_packet(-1),
-                            headers={"cho-token": "no"},
-                            status_code=200)
-        return response
+    if presence is None:
+        return Response(content=serial.write_account_id_packet(-1),
+                        headers={"cho-token": "no"},
+                        status_code=200)
 
-    presence: dict[str, Any] = response.json["data"]
-    game_mode: int = presence["game_mode"]
+    game_mode: int = presence.game_mode
 
     # fetch user stats
-    response = await users_client.get_stats(account_id, game_mode)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get user stats", session_id=session_id,
-                      status_code=response.status_code, response=response.json)
-        response = Response(content=serial.write_account_id_packet(-1),
-                            headers={"cho-token": "no"},
-                            status_code=200)
-        return response
+    stats = await users_client.get_stats(account_id, game_mode)
+    if stats is None:
+        return Response(content=serial.write_account_id_packet(-1),
+                        headers={"cho-token": "no"},
+                        status_code=200)
 
-    user_stats: dict[str, Any] = response.json["data"]
     # {'account_id': 1, 'game_mode': 0, 'total_score': 0, 'ranked_score': 0,
     #  'performance': 0, 'play_count': 0, 'play_time': 0, 'accuracy': 0.0,
     #  'max_combo': 0, 'total_hits': 0, 'replay_views': 0, 'xh_count': 0,
@@ -232,99 +211,87 @@ async def login(request: Request, ctx: RequestContext = Depends()):
     user_presence_data = serial.write_user_presence_packet(
         account_id=account_id,
         username=login_data["username"],
-        utc_offset=presence["utc_offset"],
-        country_code=presence["country_code"],
-        bancho_privileges=to_client_privileges(presence["privileges"]),
-        mode=presence["game_mode"],
-        latitude=presence["latitude"],
-        longitude=presence["longitude"],
+        utc_offset=presence.utc_offset,
+        country_code=presence.country_code,
+        bancho_privileges=to_client_privileges(presence.privileges),
+        mode=presence.game_mode,
+        latitude=presence.latitude,
+        longitude=presence.longitude,
         global_rank=user_global_rank)
 
     user_stats_data = serial.write_user_stats_packet(
         account_id=account_id,
-        action=presence["action"],
-        info_text=presence["info_text"],
-        map_md5=presence["map_md5"],
-        mods=presence["mods"],
-        mode=presence["game_mode"],
-        map_id=presence["map_id"],
-        ranked_score=user_stats["ranked_score"],
-        accuracy=user_stats["accuracy"],
-        play_count=user_stats["play_count"],
-        total_score=user_stats["total_score"],
+        action=presence.action,
+        info_text=presence.info_text,
+        map_md5=presence.map_md5,
+        mods=presence.mods,
+        mode=presence.game_mode,
+        map_id=presence.map_id,
+        ranked_score=stats.ranked_score,
+        accuracy=stats.accuracy,
+        play_count=stats.play_count,
+        total_score=stats.total_score,
         global_rank=user_global_rank,
-        pp=user_stats["performance"])
+        pp=stats.performance)
 
     response_buffer += user_presence_data
     response_buffer += user_stats_data
 
     # TODO: other sessions presences & account stats
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      status_code=response.status_code, response=response.json)
-        response = Response(content=serial.write_account_id_packet(-1),
-                            headers={"cho-token": "no"},
-                            status_code=200)
-        return response
-
-    other_presences: list[dict[str, Any]] = response.json["data"]
+    other_presences = await users_client.get_all_presences()
+    if other_presences is None:
+        return Response(content=serial.write_account_id_packet(-1),
+                        headers={"cho-token": "no"},
+                        status_code=200)
 
     for other_presence in other_presences:
-        if other_presence["session_id"] == session_id:
+        if other_presence.session_id == session_id:
             continue
 
-        if is_restricted(other_presence["privileges"]):
+        if is_restricted(other_presence.privileges):
             continue
 
-        response = await users_client.get_stats(other_presence["account_id"],
-                                                other_presence["game_mode"])
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to get user stats",
-                          status_code=response.status_code, response=response.json)
-            response = Response(content=serial.write_account_id_packet(-1),
-                                headers={"cho-token": "no"},
-                                status_code=200)
-            return response
+        other_stats = await users_client.get_stats(other_presence.account_id,
+                                                   other_presence.game_mode)
+        if other_stats is None:
+            return Response(content=serial.write_account_id_packet(-1),
+                            headers={"cho-token": "no"},
+                            status_code=200)
 
-        other_stats: dict[str, Any] = response.json["data"]
-
-        global_rank = get_global_rank(other_presence["account_id"])
+        global_rank = get_global_rank(other_presence.account_id)
 
         # send them to us
         response_buffer += serial.write_user_presence_packet(
-            account_id=other_presence["account_id"],
-            username=other_presence["username"],
-            utc_offset=other_presence["utc_offset"],
-            country_code=other_presence["country_code"],
+            account_id=other_presence.account_id,
+            username=other_presence.username,
+            utc_offset=other_presence.utc_offset,
+            country_code=other_presence.country_code,
             bancho_privileges=to_client_privileges(
-                other_presence["privileges"]),
-            mode=other_presence["game_mode"],
-            latitude=other_presence["latitude"],
-            longitude=other_presence["longitude"],
+                other_presence.privileges),
+            mode=other_presence.game_mode,
+            latitude=other_presence.latitude,
+            longitude=other_presence.longitude,
             global_rank=global_rank)
 
         response_buffer += serial.write_user_stats_packet(
-            account_id=other_presence["account_id"],
-            action=other_presence["action"],
-            info_text=other_presence["info_text"],
-            map_md5=other_presence["map_md5"],
-            mods=other_presence["mods"],
-            mode=other_presence["game_mode"],
-            map_id=other_presence["map_id"],
-            ranked_score=other_stats["ranked_score"],
-            accuracy=other_stats["accuracy"],
-            play_count=other_stats["play_count"],
-            total_score=other_stats["total_score"],
+            account_id=other_presence.account_id,
+            action=other_presence.action,
+            info_text=other_presence.info_text,
+            map_md5=other_presence.map_md5,
+            mods=other_presence.mods,
+            mode=other_presence.game_mode,
+            map_id=other_presence.map_id,
+            ranked_score=other_stats.ranked_score,
+            accuracy=other_stats.accuracy,
+            play_count=other_stats.play_count,
+            total_score=other_stats.total_score,
             global_rank=global_rank,
-            pp=other_stats["performance"])
+            pp=other_stats.performance)
 
         # send us to them
-        response = await users_client.enqueue_data(other_presence["session_id"],
-                                                   data=list(user_presence_data + user_stats_data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          status_code=response.status_code, response=response.json)
+        success = await users_client.enqueue_packet(other_presence.session_id,
+                                                    data=list(user_presence_data + user_stats_data))
+        if not success:
             response = Response(content=serial.write_account_id_packet(-1),
                                 headers={"cho-token": "no"},
                                 status_code=200)
@@ -350,16 +317,15 @@ async def bancho(request: Request,
     users_client = UsersClient(ctx)
 
     new_session_expiry = datetime.utcnow() + timedelta(minutes=5)
-    response = await users_client.partial_update_session(session_id,
-                                                         expires_at=new_session_expiry)
-    if response.status_code not in range(200, 300):
+
+    session = await users_client.partial_update_session(session_id,
+                                                        expires_at=new_session_expiry)
+    if session is None:
         # this session could not be found - probably expired
         response = Response(content=(serial.write_notification_packet("Service has restarted")
                                      + serial.write_server_restart_packet(ms=0)),
                             status_code=200)
         return response
-
-    session: Session = response.json["data"]
 
     response_buffer = bytearray()
 
@@ -379,10 +345,8 @@ async def bancho(request: Request,
             response_buffer += packet_response
 
     # fetch any data from the player's packet queue
-    response = await users_client.deqeue_all_data(session_id)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to dequeue all data", session_id=session_id,
-                      status_code=response.status_code, response=response.json)
+    queued_packets = await users_client.deqeue_all_packets(session_id)
+    if queued_packets is None:
         # TODO: should we send a packet here?
         # response = Response(content=serial.write_account_id_packet(-1),
         #                     headers={"cho-token": "no"},
@@ -390,9 +354,8 @@ async def bancho(request: Request,
         response = b""
         return response
 
-    queued_packets: list[QueuedPacket] = response.json["data"]
     for packet in queued_packets:
-        response_buffer.extend(packet["data"])
+        response_buffer.extend(packet.data)
 
     response_data = bytes(response_buffer)
 

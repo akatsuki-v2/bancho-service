@@ -1,6 +1,7 @@
+from app.common import logging
 from app.common import settings
 from app.common.context import Context
-from app.services.http_client import ServiceResponse
+from app.models.beatmaps import Beatmap
 
 SERVICE_URL = "http://beatmaps-service"
 
@@ -11,12 +12,18 @@ class BeatmapsClient:
 
     # beatmaps
 
-    async def get_beatmap(self, beatmap_id: int) -> ServiceResponse:
+    async def get_beatmap(self, beatmap_id: int) -> Beatmap | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/beatmaps/{beatmap_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get beatmap",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Beatmap(**response.json['data'])
 
     async def get_beatmaps(self, set_id: int | None = None,
                            md5_hash: str | None = None,
@@ -25,7 +32,7 @@ class BeatmapsClient:
                            status: str | None = None,
                            page: int = 1,
                            page_size: int = settings.DEFAULT_PAGE_SIZE,
-                           ) -> ServiceResponse:
+                           ) -> list[Beatmap] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/beatmaps",
@@ -34,9 +41,14 @@ class BeatmapsClient:
                 "md5_hash": md5_hash,
                 "mode": mode,
                 "ranked_status": ranked_status,
-                "status":  status,
+                "status": status,
                 "page": page,
                 "page_size": page_size,
-            },
-        )
-        return response
+            })
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get beatmaps",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return [Beatmap(**rec) for rec in response.json['data']]

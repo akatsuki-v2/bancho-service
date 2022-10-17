@@ -1,5 +1,7 @@
+from app.common import logging
 from app.common import settings
 from app.common.context import Context
+from app.models.scores import Score
 from app.services.http_client import ServiceResponse
 
 SERVICE_URL = "http://scores-service"
@@ -18,7 +20,7 @@ class ScoresClient:
                            count_katus: int, count_misses: int, grade: str,
                            passed: bool, perfect: bool, seconds_elapsed: int,
                            anticheat_flags: int, client_checksum: str,
-                           status: str) -> ServiceResponse:
+                           status: str) -> Score | None:
         response = await self.ctx.http_client.service_call(
             method="POST",
             url=f"{SERVICE_URL}/v1/scores",
@@ -47,14 +49,26 @@ class ScoresClient:
                 "status": status,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to submit score",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def get_score(self, score_id: int) -> ServiceResponse:
+        return Score(**response.json['data'])
+
+    async def get_score(self, score_id: int) -> Score | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/scores/{score_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get score",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Score(**response.json['data'])
 
     async def get_scores(self, beatmap_md5: str | None = None,
                          account_id: int | None = None,
@@ -65,7 +79,7 @@ class ScoresClient:
                          status: str | None = None,
                          page: int = 1,
                          page_size: int = settings.DEFAULT_PAGE_SIZE,
-                         ) -> ServiceResponse:
+                         ) -> list[Score] | None:
         response = await self.ctx.http_client.service_call(
             method="GET",
             url=f"{SERVICE_URL}/v1/scores",
@@ -81,11 +95,23 @@ class ScoresClient:
                 "page_size": page_size,
             },
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to get scores",
+                          status=response.status_code,
+                          response=response.json)
+            return None
 
-    async def delete_score(self, score_id: int) -> ServiceResponse:
+        return [Score(**rec) for rec in response.json['data']]
+
+    async def delete_score(self, score_id: int) -> Score | None:
         response = await self.ctx.http_client.service_call(
             method="DELETE",
             url=f"{SERVICE_URL}/v1/scores/{score_id}",
         )
-        return response
+        if response.status_code not in range(200, 300):
+            logging.error("Failed to delete score",
+                          status=response.status_code,
+                          response=response.json)
+            return None
+
+        return Score(**response.json['data'])

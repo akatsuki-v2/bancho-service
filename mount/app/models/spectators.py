@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import TypedDict
 from uuid import UUID
 
+from . import BaseModel
 
-class Spectator(TypedDict):
+
+class Spectator(BaseModel):
     session_id: UUID
     account_id: int
     created_at: datetime

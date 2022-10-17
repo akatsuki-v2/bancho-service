@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from enum import IntEnum
 from typing import Any
 from typing import Literal
 from typing import Mapping
@@ -12,8 +11,14 @@ from httpx import Response as HTTPXResponse
 MethodTypes = Literal["POST", "PUT", "PATCH",
                       "GET", "HEAD", "DELETE", "OPTIONS"]
 
+# TODO: make some sort of ServiceError enum to represent errors coming back from
+# core services. also allows us to differentiate between no value and errors
 
-class ServiceResponse:  # TODO: is this stupid?
+# TODO: make this able to represent the data coming from a service
+#       back better than Any (that should be the primary goal, likely)
+
+
+class ServiceResponse:
     def __init__(self, status_code: int, headers: Mapping[str, Any], content: bytes) -> None:
         self.status_code = status_code
         self.headers = headers

@@ -74,70 +74,44 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
     chats_client = ChatsClient(ctx)
 
     # delete user presence
-    response = await users_client.delete_presence(session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to delete user presence",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    presence = await users_client.delete_presence(session.session_id)
+    if presence is None:
         return b""
 
     # delete user session
-    response = await users_client.log_out(session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to delete user session",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    deleted_session = await users_client.log_out(session.session_id)
+    if deleted_session is None:
         return b""
 
     # remove user from all chats they're in
-    response = await chats_client.get_chats()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chats",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    chats = await chats_client.get_chats()
+    if chats is None:
         return b""
 
-    chats: list[Chat] = response.json["data"]
     for chat in chats:
-        response = await chats_client.leave_chat(chat["chat_id"],
-                                                 session["session_id"])
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to leave chat",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        chat_left = await chats_client.leave_chat(chat.chat_id,
+                                                  session.session_id)
+        if chat_left is None:
             return b""
 
     # inform all other players that the user has logged out
     # TODO: should we be fetching the osu-specific sessions here?
     # should sessions be refactored so that we have osu-specific ones?
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    data = serial.write_user_logout_packet(session.account_id)
+
+    other_presences = await users_client.get_all_presences()
+    if other_presences is None:
         return b""
 
-    data = serial.write_user_logout_packet(session["account_id"])
-
-    other_presences: list[Presence] = response.json["data"]
     for other_presence in other_presences:
         # commented since we're already logged out.
         # left here because it's logical
-        # if other_presence["session_id"] == session["session_id"]:
+        # if other_presence.session_id == session.session_id:
         #     continue
 
-        response = await users_client.enqueue_data(other_presence["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to send logout packet",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(other_presence.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return b""
@@ -148,41 +122,29 @@ async def handle_request_game_mode_stats(ctx: Context, session: Session,
                                          packet_data: bytes) -> bytes:
     users_client = UsersClient(ctx)
 
-    response = await users_client.get_presence(session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get user presence",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    presence = await users_client.get_presence(session.session_id)
+    if presence is None:
         return b""
 
-    presence: Presence = response.json["data"]
-
-    response = await users_client.get_stats(session["account_id"],
-                                            presence["game_mode"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get user stats",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    stats = await users_client.get_stats(session.account_id,
+                                         presence.game_mode)
+    if stats is None:
         return b""
-
-    stats: Stats = response.json["data"]
 
     return serial.write_user_stats_packet(
-        account_id=session["account_id"],
-        action=presence["action"],
-        info_text=presence["info_text"],
-        map_md5=presence["map_md5"],
-        mods=presence["mods"],
-        mode=presence["game_mode"],
-        map_id=presence["map_id"],
-        ranked_score=stats["ranked_score"],
-        accuracy=stats["accuracy"],
-        play_count=stats["play_count"],
-        total_score=stats["total_score"],
+        account_id=session.account_id,
+        action=presence.action,
+        info_text=presence.info_text,
+        map_md5=presence.map_md5,
+        mods=presence.mods,
+        mode=presence.game_mode,
+        map_id=presence.map_id,
+        ranked_score=stats.ranked_score,
+        accuracy=stats.accuracy,
+        play_count=stats.play_count,
+        total_score=stats.total_score,
         global_rank=0,  # TODO
-        pp=stats["performance"],
+        pp=stats.performance,
     )
 
 
@@ -191,46 +153,35 @@ async def handle_request_all_user_stats_request(ctx: Context, session: Session,
                                                 packet_data: bytes) -> bytes:
     users_client = UsersClient(ctx)
 
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    presences = await users_client.get_all_presences()
+    if presences is None:
         return b""
 
     response_buffer = bytearray()
 
-    presences: list[Presence] = response.json["data"]
     for presence in presences:
-        if presence["session_id"] == session["session_id"]:
+        if presence.session_id == session.session_id:
             continue
 
-        response = await users_client.get_stats(presence["account_id"],
-                                                presence["game_mode"])
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to get user stats",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        stats = await users_client.get_stats(presence.account_id,
+                                             presence.game_mode)
+        if stats is None:
             return b""
 
-        stats: Stats = response.json["data"]
-
         response_buffer += serial.write_user_stats_packet(
-            account_id=stats["account_id"],
-            action=presence["action"],
-            info_text=presence["info_text"],
-            map_md5=presence["map_md5"],
-            mods=presence["mods"],
-            mode=presence["game_mode"],
-            map_id=presence["map_id"],
-            ranked_score=stats["ranked_score"],
-            accuracy=stats["accuracy"],
-            play_count=stats["play_count"],
-            total_score=stats["total_score"],
+            account_id=stats.account_id,
+            action=presence.action,
+            info_text=presence.info_text,
+            map_md5=presence.map_md5,
+            mods=presence.mods,
+            mode=presence.game_mode,
+            map_id=presence.map_id,
+            ranked_score=stats.ranked_score,
+            accuracy=stats.accuracy,
+            play_count=stats.play_count,
+            total_score=stats.total_score,
             global_rank=0,  # TODO
-            pp=stats["performance"],
+            pp=stats.performance,
         )
 
     return bytes(response_buffer)
@@ -252,8 +203,8 @@ async def handle_change_action_request(ctx: Context, session: Session,
 
     users_client = UsersClient(ctx)
 
-    response = await users_client.partial_update_presence(
-        session["session_id"],
+    presence = await users_client.partial_update_presence(
+        session.session_id,
         action=action,
         info_text=info_text,
         map_md5=map_md5,
@@ -261,60 +212,38 @@ async def handle_change_action_request(ctx: Context, session: Session,
         game_mode=mode,
         map_id=map_id,
     )
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to update user presence",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    if presence is None:
         return b""
 
-    presence: Presence = response.json["data"]
-
-    response = await users_client.get_stats(presence["account_id"],
-                                            presence["game_mode"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get user stats",
-                      account_id=presence["account_id"],
-                      game_mode=presence["game_mode"],
-                      status=response.status_code,
-                      response=response.json)
+    stats = await users_client.get_stats(presence.account_id,
+                                         presence.game_mode)
+    if stats is None:
         return b""
-
-    stats: Stats = response.json["data"]
 
     # broadcast the new presence to all other users
     # TODO: if the user is restricted, should not happen
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      status=response.status_code,
-                      response=response.json)
+    other_presences = await users_client.get_all_presences()
+    if other_presences is None:
         return b""
 
-    other_presences: list[Presence] = response.json["data"]
-
-    data = serial.write_user_stats_packet(account_id=session["account_id"],
+    data = serial.write_user_stats_packet(account_id=session.account_id,
                                           action=action,
                                           info_text=info_text,
                                           map_md5=map_md5,
                                           mods=mods,
                                           mode=mode,
                                           map_id=map_id,
-                                          ranked_score=stats["ranked_score"],
-                                          accuracy=stats["accuracy"],
-                                          play_count=stats["play_count"],
-                                          total_score=stats["total_score"],
+                                          ranked_score=stats.ranked_score,
+                                          accuracy=stats.accuracy,
+                                          play_count=stats.play_count,
+                                          total_score=stats.total_score,
                                           global_rank=0,  # TODO
-                                          pp=stats["performance"])
+                                          pp=stats.performance)
 
     for other_presence in other_presences:
-        response = await users_client.enqueue_data(other_presence["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=other_presence["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(other_presence.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return b""
@@ -329,7 +258,7 @@ async def handle_update_presence_filter_request(ctx: Context, session: Session,
 
     if presence_filter not in range(0, 3):
         logging.warning("User sent an invalid presence filter",
-                        session_id=session["session_id"],
+                        session_id=session.session_id,
                         presence_filter=presence_filter)
         return b""
 
@@ -366,7 +295,7 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
 
     if len(message) > 1000:
         logging.warning("User sent a message that was too long",
-                        session_id=session["session_id"],
+                        session_id=session.session_id,
                         message=message)
         return serial.write_notification_packet("Your message was not sent.\n"
                                                 "(it exceeded the 1K character limit)")
@@ -375,67 +304,46 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
     chats_client = ChatsClient(ctx)
 
     # TODO: instance channels will need to be handled differently
-    response = await chats_client.get_chats(name=recipient_name)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chat",
-                      name=recipient_name,
-                      status=response.status_code,
-                      response=response.json)
+    chats = await chats_client.get_chats(name=recipient_name)
+    if chats is None:
         return b""
 
-    chats: list[Chat] = response.json["data"]
     if not chats:
         logging.warning("User sent a message to a non-existent chat",
-                        session_id=session["session_id"],
+                        session_id=session.session_id,
                         recipient_name=recipient_name)
         return b""
 
     chat = chats[0]
 
-    response = await chats_client.get_members(chat["chat_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chat members",
-                      chat_id=chat["chat_id"],
-                      status=response.status_code,
-                      response=response.json)
+    chat_members = await chats_client.get_members(chat.chat_id)
+    if chat_members is None:
         return b""
-
-    chat_members: list[Member] = response.json["data"]
 
     # make sure sender is actually in the chats members
-    if not any(member["account_id"] == session["account_id"]
+    if not any(member.account_id == session.account_id
                for member in chat_members):
         logging.warning("User sent a message to a chat they are not in",
-                        session_id=session["session_id"],
-                        chat_id=chat["chat_id"], chat_name=chat["name"])
+                        session_id=session.session_id,
+                        chat_id=chat.chat_id, chat_name=chat.name)
         return b""
 
-    response = await users_client.get_account(session["account_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get account",
-                      account_id=session["account_id"],
-                      status=response.status_code,
-                      response=response.json)
+    account = await users_client.get_account(session.account_id)
+    if account is None:
         return b""
 
-    account: Account = response.json["data"]
-
-    data = serial.write_send_message_packet(sender=account["username"],
+    data = serial.write_send_message_packet(sender=account.username,
                                             message=message,
                                             recipient=recipient_name,
-                                            sender_id=account["account_id"])
+                                            sender_id=account.account_id)
 
     for chat_member in chat_members:
-        if chat_member["session_id"] == session["session_id"]:
+        if chat_member.session_id == session.session_id:
             continue
 
-        response = await users_client.enqueue_data(chat_member["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=chat_member["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(chat_member.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return b""
@@ -454,80 +362,52 @@ async def handle_channel_part_request(ctx: Context, session: Session,
     users_client = UsersClient(ctx)
     chats_client = ChatsClient(ctx)
 
-    response = await chats_client.get_chats(name=channel_name)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chats",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    chats = await chats_client.get_chats(name=channel_name)
+    if chats is None:
         return b""
-
-    chats: list[Chat] = response.json["data"]
 
     if len(chats) != 1:
         # logging.error("Failed to get chat",
         #               channel_name=channel_name,
-        #               session_id=session["session_id"])
+        #               session_id=session.session_id)
         return b""
 
     chat = chats[0]
 
     # check if user is already in channel
-    response = await chats_client.get_members(chat["chat_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chat members",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    members = await chats_client.get_members(chat.chat_id)
+    if members is None:
         return b""
 
-    members: list[Member] = response.json["data"]
-
     for member in members:
-        if member["account_id"] == session["account_id"]:
+        if member.account_id == session.account_id:
             break
     else:
         logging.error("User attempted to leave channel they're not in",
                       channel_name=channel_name,
-                      session_id=session["session_id"])
+                      session_id=session.session_id)
         return b""
 
-    response = await chats_client.leave_chat(chat["chat_id"],
-                                             session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to leave chat",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    chat_left = await chats_client.leave_chat(chat.chat_id,
+                                              session.session_id)
+    if chat_left is None:
         return b""
 
     # send updated channel info (player count) to everyone that can see it
-    updated_channel_info = serial.write_channel_info_packet(channel=chat["name"],
-                                                            topic=chat["topic"],
+    updated_channel_info = serial.write_channel_info_packet(channel=chat.name,
+                                                            topic=chat.topic,
                                                             user_count=len(members) - 1)
 
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    presences = await users_client.get_all_presences()
+    if presences is None:
         return b""
 
-    presences: list[Presence] = response.json["data"]
     for presence in presences:
         # TODO: only if they have read privs
 
-        response = await users_client.enqueue_data(presence["session_id"],
-                                                   list(updated_channel_info))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(presence.session_id,
+                                                    list(updated_channel_info))
+        if not success:
             return b""
 
     return b""
@@ -542,76 +422,50 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
 
     users_client = UsersClient(ctx)
 
-    response = await users_client.get_all_sessions(account_id=target_id)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all sessions",
-                      target_id=target_id,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    sessions = await users_client.get_all_sessions(account_id=target_id)
+    if sessions is None:
         return b""
-
-    sessions: list[Session] = response.json["data"]
 
     if len(sessions) != 1:
         logging.error("Failed to get session",
                       target_id=target_id,
-                      session_id=session["session_id"])
+                      session_id=session.session_id)
         return b""
 
     target_session = sessions[0]
 
-    response = await users_client.create_spectator(
-        host_session_id=target_session["session_id"],
-        session_id=session["session_id"],
-        account_id=session["account_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to create spectator",
-                      target_id=target_id,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    spectator = await users_client.create_spectator(
+        host_session_id=target_session.session_id,
+        session_id=session.session_id,
+        account_id=session.account_id)
+    if spectator is None:
         return b""
 
-    data = serial.write_spectator_joined_packet(session["account_id"])
-    response = await users_client.enqueue_data(target_session["session_id"],
-                                               data=list(data))
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to enqueue data",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    data = serial.write_spectator_joined_packet(session.account_id)
+    success = await users_client.enqueue_packet(target_session.session_id,
+                                                data=list(data))
+    if not success:
         return b""
 
-    response = await users_client.get_spectators(target_session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get spectators",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    spectators = await users_client.get_spectators(target_session.session_id)
+    if spectators is None:
         return b""
-
-    spectators: list[Spectator] = response.json["data"]
 
     response_buffer = bytearray()
 
-    data = serial.write_fellow_spectator_joined_packet(session["account_id"])
+    data = serial.write_fellow_spectator_joined_packet(session.account_id)
     for spectator in spectators:
-        if spectator == session["session_id"]:
+        if spectator == session.session_id:
             continue
 
         # them to us
         response_buffer += serial.write_fellow_spectator_joined_packet(
-            spectator["account_id"])
+            spectator.account_id)
 
         # us to them
-        response = await users_client.enqueue_data(spectator["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(spectator.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return bytes(response_buffer)
@@ -623,68 +477,44 @@ async def handle_stop_spectating_request(ctx: Context, session: Session,
     users_client = UsersClient(ctx)
 
     # get the user we're spectating
-    response = await users_client.get_spectator_host(session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get spectator host",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    host_session_id = await users_client.get_spectator_host(session.session_id)
+    if host_session_id is None:
         return b""
 
-    host_session_id = UUID(response.json["data"])
-
     # stop spectating them
-    response = await users_client.delete_spectator(
+    spectator = await users_client.delete_spectator(
         host_session_id=host_session_id,
-        session_id=session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to delete spectator",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+        session_id=session.session_id)
+    if spectator is None:
         return b""
 
     # tell them we stopped spectating
-    data = serial.write_spectator_left_packet(session["account_id"])
-    response = await users_client.enqueue_data(host_session_id,
-                                               data=list(data))
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to enqueue data",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    data = serial.write_spectator_left_packet(session.account_id)
+    success = await users_client.enqueue_packet(host_session_id,
+                                                data=list(data))
+    if not success:
         return b""
 
     # tell everyone else we stopped spectating
-    response = await users_client.get_spectators(host_session_id)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get spectators",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    spectators = await users_client.get_spectators(host_session_id)
+    if spectators is None:
         return b""
-
-    spectators: list[Spectator] = response.json["data"]
 
     response_buffer = bytearray()
 
-    data = serial.write_fellow_spectator_left_packet(session["account_id"])
+    data = serial.write_fellow_spectator_left_packet(session.account_id)
     for spectator in spectators:
-        if spectator == session["session_id"]:
+        if spectator == session.session_id:
             continue
 
         # them to us
         response_buffer += serial.write_fellow_spectator_left_packet(
-            spectator["account_id"])
+            spectator.account_id)
 
         # us to them
-        response = await users_client.enqueue_data(spectator["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(spectator.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return bytes(response_buffer)
@@ -701,26 +531,16 @@ async def handle_spectate_frames_request(ctx: Context, session: Session,
 
     users_client = UsersClient(ctx)
 
-    response = await users_client.get_spectators(session["session_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get spectator",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    spectators = await users_client.get_spectators(session.session_id)
+    if spectators is None:
         return b""
-
-    spectators: list[Spectator] = response.json["data"]
 
     data = serial.write_spectate_frames_packet(frame_bundle_data)
 
     for spectator in spectators:
-        response = await users_client.enqueue_data(spectator["session_id"],
-                                                   data=list(data))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(spectator.session_id,
+                                                    data=list(data))
+        if not success:
             return b""
 
     return b""
@@ -738,21 +558,14 @@ async def handle_channel_join_request(ctx: Context, session: Session,
 
     chats_client = ChatsClient(ctx)
 
-    response = await chats_client.get_chats(name=channel_name)
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chats",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    chats = await chats_client.get_chats(name=channel_name)
+    if chats is None:
         return b""
-
-    chats: list[Chat] = response.json["data"]
 
     if len(chats) != 1:
         # logging.error("Failed to get chat",
         #               channel_name=channel_name,
-        #               session_id=session["session_id"])
+        #               session_id=session.session_id)
         return b""
 
     chat = chats[0]
@@ -760,22 +573,15 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     # https://github.com/osuAkatsuki/bancho.py/blob/25d844eb6e2b9ec89e73fcc3b4b7632dbbf35709/app/objects/player.py#L758-L790
 
     # check if user is already in channel
-    response = await chats_client.get_members(chat["chat_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get chat members",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    members = await chats_client.get_members(chat.chat_id)
+    if members is None:
         return b""
 
-    members: list[Member] = response.json["data"]
-
     for member in members:
-        if member["account_id"] == session["account_id"]:
+        if member.account_id == session.account_id:
             logging.error("User attempted to join channel they're already in",
                           channel_name=channel_name,
-                          session_id=session["session_id"])
+                          session_id=session.session_id)
             return b""
 
     # check if user has read privileges to the channel
@@ -786,27 +592,16 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     # join the channel
     users_client = UsersClient(ctx)
 
-    response = await users_client.get_account(session["account_id"])
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get account",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    account = await users_client.get_account(session.account_id)
+    if account is None:
         return b""
 
-    account: Account = response.json["data"]
-
-    response = await chats_client.join_chat(chat["chat_id"],
-                                            session["session_id"],
-                                            session["account_id"],
-                                            account["username"],
-                                            privileges=0)  # TODO
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to join chat",
-                      channel_name=channel_name,
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    member = await chats_client.join_chat(chat.chat_id,
+                                          session.session_id,
+                                          session.account_id,
+                                          account.username,
+                                          privileges=0)  # TODO
+    if member is None:
         return b""
 
     # TODO: attach channel to player?
@@ -816,29 +611,20 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     response_buffer += serial.write_channel_join_success_packet(channel_name)
 
     # send updated channel info (player count) to everyone that can see it
-    updated_channel_info = serial.write_channel_info_packet(channel=chat["name"],
-                                                            topic=chat["topic"],
+    updated_channel_info = serial.write_channel_info_packet(channel=chat.name,
+                                                            topic=chat.topic,
                                                             user_count=len(members) + 1)
 
-    response = await users_client.get_all_presences()
-    if response.status_code not in range(200, 300):
-        logging.error("Failed to get all presences",
-                      session_id=session["session_id"],
-                      status=response.status_code,
-                      response=response.json)
+    presences = await users_client.get_all_presences()
+    if presences is None:
         return b""
 
-    presences: list[Presence] = response.json["data"]
     for presence in presences:
         # TODO: only if they have read privs
 
-        response = await users_client.enqueue_data(presence["session_id"],
-                                                   list(updated_channel_info))
-        if response.status_code not in range(200, 300):
-            logging.error("Failed to enqueue data",
-                          session_id=session["session_id"],
-                          status=response.status_code,
-                          response=response.json)
+        success = await users_client.enqueue_packet(presence.session_id,
+                                                    list(updated_channel_info))
+        if not success:
             return b""
 
     return bytes(response_buffer)

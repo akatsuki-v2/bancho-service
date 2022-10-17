@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import TypedDict
 
+from . import BaseModel
 from . import Status
 
 
-class Stats(TypedDict):
+class Stats(BaseModel):
     account_id: int
     game_mode: int
     total_score: int
