@@ -5,12 +5,10 @@ from app.common import logging
 from app.common.context import Context
 from app.models.accounts import Account
 from app.models.presences import Presence
-from app.services.http_client import ServiceResponse
-
-from mount.app.models.queued_packets import QueuedPacket
-from mount.app.models.sessions import Session
-from mount.app.models.spectators import Spectator
-from mount.app.models.stats import Stats
+from app.models.queued_packets import QueuedPacket
+from app.models.sessions import Session
+from app.models.spectators import Spectator
+from app.models.stats import Stats
 
 SERVICE_URL = "http://users-service"
 
