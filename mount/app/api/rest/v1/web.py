@@ -5,6 +5,7 @@ from typing import Sequence
 from app.api.rest.context import RequestContext
 from app.common import logging
 from app.models.beatmaps import Beatmap
+from app.models.beatmapsets import Beatmapset
 from app.models.scores import Score
 from app.services.beatmaps_client import BeatmapsClient
 from app.services.scores_client import ScoresClient
@@ -108,39 +109,47 @@ def osu_api_ranked_status_to_getscores(status: int) -> int:
     }[status]
 
 
+# TODO: should these live in serial?
+
 def write_leaderboard_score(score: Score, rank: int) -> bytes:
-    timestamp = int(datetime.fromisoformat(
-        score.pop("created_at")).timestamp())
-    perfect = "1" if score.pop("perfect") else "0"
+    timestamp = int(score.created_at.timestamp())
+    perfect = "1" if score.perfect else "0"
 
     return (
         "{score_id}|{username}|{score}|{max_combo}|{count_50s}|{count_100s}|"
         "{count_300s}|{count_misses}|{count_katus}|{count_gekis}|{perfect}|"
         "{mods}|{account_id}|{rank}|{created_at}|{has_replay}"
-    ).format(**dict(score), created_at=timestamp, rank=rank,
-             perfect=perfect, has_replay="1").encode() + b"\n"
+    ).format(score_id=score.score_id, username=score.username, score=score.score,
+             max_combo=score.max_combo, count_50s=score.count_50s,
+             count_100s=score.count_100s, count_300s=score.count_300s,
+             count_misses=score.count_misses, count_katus=score.count_katus,
+             count_gekis=score.count_gekis, perfect=perfect, mods=score.mods,
+             account_id=score.account_id, rank=rank, created_at=timestamp,
+             has_replay="1").encode() + b"\n"
 
 
-# TODO: should this live in serial?
-def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
+def write_leaderboard(beatmap: Beatmap, beatmapset: Beatmapset,
+                      scores: Sequence[Score],
                       personal_best_score: Score | None) -> bytes:
     response_buffer = bytearray()
 
     response_buffer += (
         "{ranked_status}|{serv_has_osz2}|{beatmap_id}|{beatmap_set_id}|"
         "{score_count}|{featured_artist_track_id}|{featured_artist_license_text}"
-    ).format(ranked_status=osu_api_ranked_status_to_getscores(beatmap["ranked_status"]),
+    ).format(ranked_status=osu_api_ranked_status_to_getscores(beatmap.ranked_status),
              serv_has_osz2="0",
-             beatmap_id=beatmap["beatmap_id"],
-             beatmap_set_id=beatmap["set_id"],
+             beatmap_id=beatmap.beatmap_id,
+             beatmap_set_id=beatmap.set_id,
              score_count=len(scores),
              featured_artist_track_id="0",
              featured_artist_license_text="").encode() + b"\n"
 
     # TODO: make these real values
     beatmap_offset = 0
-    beatmap_name = beatmap['version']  # NOTE: `|` is replaced by `\n`
     beatmap_rating = 10.0
+
+    # NOTE: `|` is replaced by `\n` by osu! on the client side
+    beatmap_name = f'{beatmapset.artist} - {beatmapset.title} [{beatmap.version}]'
 
     response_buffer += f"{beatmap_offset}\n{beatmap_name}\n{beatmap_rating}\n".encode()
 
@@ -156,6 +165,10 @@ def write_leaderboard(beatmap: Beatmap, scores: Sequence[Score],
     return bytes(response_buffer)
 
 
+def create_map_filename(artist: str, title: str, mapper_name: str, version: str) -> str:
+    return f"{artist} - {title} ({mapper_name}) [{version}].osu"
+
+
 @router.get("/v1/web/osu-osz2-getscores.php")
 async def get_scores(
     username: str = Query(..., alias="us"),
@@ -164,7 +177,7 @@ async def get_scores(
     leaderboard_version: int = Query(..., alias="vv"),
     leaderboard_type: LeaderboardType = Query(..., alias="v"),
     beatmap_md5: str = Query(..., alias="c", min_length=32, max_length=32),
-    beatmap_file_name: str = Query(..., alias="f"),
+    map_file_name: str = Query(..., alias="f"),
     mode: OsuGameMode = Query(..., alias="m"),
     map_set_id: int = Query(..., alias="i", ge=-1, le=2_147_483_647),
     mods: int = Query(..., alias="mods", ge=0, le=2_147_483_647),
@@ -180,13 +193,45 @@ async def get_scores(
 
     mode_str = mode_int_to_string(mode)
 
+    if map_set_id != -1:
+        beatmapset = await beatmaps_client.get_beatmapset(map_set_id)
+        if beatmapset is None:
+            return Response(content=b"-1|false")
+    else:
+        beatmapset = None
+
+        logging.error("osu! client sent map_set_id=-1, this is not supported")
+        return Response(content=b"-1|false")
+
+    # TODO: need some way to fetch_one by md5
     beatmaps = await beatmaps_client.get_beatmaps(md5_hash=beatmap_md5,
                                                   mode=mode_str, page_size=1)
     if beatmaps is None:
         return Response(content=b"-1|false")
 
-    if len(beatmaps) == 0:
-        return Response(content=b"-1|false")
+    if not beatmaps:
+        if beatmapset is None:
+            return Response(content=b"-1|false")
+
+        set_beatmaps = await beatmaps_client.get_beatmaps(set_id=beatmapset.beatmapset_id)
+        if set_beatmaps is None:
+            # TODO is this right?
+            return False
+
+        for beatmap in set_beatmaps:
+            file_name = create_map_filename(beatmapset.artist,
+                                            beatmapset.title,
+                                            beatmapset.mapper_name,
+                                            beatmap.version)
+            if map_file_name == file_name:
+                return Response(content=b"1|false")
+
+            return Response(content=b"-1|false")
+
+    if beatmapset is None:
+        # we don't have the beatmapset, but we have a map! it has the set id
+        beatmapset = await beatmaps_client.get_beatmapset(beatmaps[0].set_id)
+        assert beatmapset is not None
 
     beatmap = beatmaps[0]
 
@@ -204,7 +249,8 @@ async def get_scores(
 
     personal_best = scores[0] if len(scores) > 0 else None
 
-    response_buffer = write_leaderboard(beatmap, scores, personal_best)
+    response_buffer = write_leaderboard(beatmap, beatmapset,
+                                        scores, personal_best)
     return Response(content=response_buffer, status_code=200)
 
 

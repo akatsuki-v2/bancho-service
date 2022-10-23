@@ -27,7 +27,7 @@ class Beatmap(BaseModel):
     pass_count: int
     play_count: int
     version: str
-    created_by: int
+    mapper_id: int
     ranked_status: RankedStatus
     status: Status
     created_at: datetime
