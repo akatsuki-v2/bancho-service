@@ -57,6 +57,7 @@ class ChatsClient:
                         read_privileges: int | None = None,
                         write_privileges: int | None = None,
                         auto_join: bool | None = None,
+                        instance: bool | None = None,
                         status: Status | None = Status.ACTIVE,
                         created_by: int | None = None) -> list[Chat] | None:
         response = await self.ctx.http_client.service_call(
@@ -68,6 +69,7 @@ class ChatsClient:
                 "read_privileges": read_privileges,
                 "write_privileges": write_privileges,
                 "auto_join": auto_join,
+                "instance": instance,
                 "status": status,
                 "created_by": created_by,
             },
