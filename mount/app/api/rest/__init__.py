@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import time
-
+from app.api.rest import middlewares
 from app.common import logging
 from app.services import http_client
 from fastapi import FastAPI
-from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 def init_http_client(api: FastAPI) -> None:
@@ -25,21 +24,15 @@ def init_http_client(api: FastAPI) -> None:
 
 
 def init_middlewares(api: FastAPI) -> None:
-    # NOTE: these run bottom to top
+    middleware_stack = [
+        middlewares.add_process_time_header_to_response,
+        middlewares.add_http_client_to_request,
+    ]
 
-    @api.middleware("http")
-    async def add_http_client_to_request(request: Request, call_next):
-        request.state.http_client = request.app.state.http_client
-        response = await call_next(request)
-        return response
-
-    @api.middleware("http")
-    async def add_process_time_header(request: Request, call_next):
-        start_time = time.perf_counter_ns()
-        response = await call_next(request)
-        process_time = (time.perf_counter_ns() - start_time) / 1e6
-        response.headers["X-Process-Time"] = str(process_time)  # ms
-        return response
+    # NOTE: starlette reverses the order of the middleware stack
+    # more info: https://github.com/encode/starlette/issues/479
+    for middleware in reversed(middleware_stack):
+        api.add_middleware(BaseHTTPMiddleware, dispatch=middleware)
 
 
 def init_routes(api: FastAPI) -> None:
