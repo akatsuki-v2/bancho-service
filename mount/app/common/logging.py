@@ -13,7 +13,7 @@ _ROOT_LOGGER = stdlib_logging.getLogger("service-root")
 _REQUEST_ID_CONTEXT = ContextVar("request_id")
 
 
-def get_logger(name: str | None = None) -> structlog.BoundLogger:
+def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     return structlog.wrap_logger(_ROOT_LOGGER, logger_name=name or "root")
 
 
