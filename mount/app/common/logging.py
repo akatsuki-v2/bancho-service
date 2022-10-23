@@ -52,7 +52,7 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
 
     handler = stdlib_logging.StreamHandler()
     handler.setFormatter(formatter)
-    handler.setLevel((log_level))
+    handler.setLevel(log_level)
 
     # brute force control of the message format & level
     # TODO: loggers can be created after this. how should we handle that?
