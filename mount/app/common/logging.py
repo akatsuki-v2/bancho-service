@@ -55,6 +55,7 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     handler.setLevel((log_level))
 
     # brute force control of the message format & level
+    # TODO: loggers can be created after this. how should we handle that?
     existing_loggers = [
         stdlib_logging.getLogger(name)
         for name in stdlib_logging.root.manager.loggerDict
