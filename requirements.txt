@@ -1,4 +1,5 @@
 fastapi[all]
+git+ssh://git@github.com/akatsuki-v2/shared-modules.git
 httpx
 python-dotenv
 structlog

@@ -1,7 +1,7 @@
 import time
 
-from app.common import logging
 from fastapi import Request
+from shared_modules import logger
 from starlette.middleware.base import RequestResponseEndpoint
 
 
@@ -24,6 +24,6 @@ async def add_http_client_to_request(request: Request,
 async def set_request_id_context(request: Request,
                                  call_next: RequestResponseEndpoint):
     request_id: str | None = request.headers.get("X-Request-ID")
-    logging.set_request_id(request_id)
+    logger.set_request_id(request_id)
     response = await call_next(request)
     return response

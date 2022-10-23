@@ -7,7 +7,6 @@ from typing import Any
 from uuid import UUID
 
 from app.api.rest.context import RequestContext
-from app.common import logging
 from app.common import serial
 from app.events.packets import handle_packet_event
 from app.models.presences import Presence
@@ -21,6 +20,7 @@ from fastapi import Depends
 from fastapi import Header
 from fastapi import Request
 from fastapi import Response
+from shared_modules import logger
 
 router = APIRouter()
 
@@ -359,8 +359,8 @@ async def bancho(request: Request,
 
     response_data = bytes(response_buffer)
 
-    logging.debug("Sending bancho response", session_id=session_id,
-                  response=response_data)
+    logger.debug("Sending bancho response", session_id=session_id,
+                 response=response_data)
 
     response = Response(content=response_data, status_code=200)
     return response

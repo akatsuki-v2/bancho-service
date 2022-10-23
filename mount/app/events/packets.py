@@ -2,7 +2,6 @@ from typing import Awaitable
 from typing import Callable
 from uuid import UUID
 
-from app.common import logging
 from app.common import serial
 from app.common.context import Context
 from app.models.accounts import Account
@@ -16,6 +15,7 @@ from app.models.stats import Stats
 from app.services.beatmaps_client import BeatmapsClient
 from app.services.chats_client import ChatsClient
 from app.services.users_client import UsersClient
+from shared_modules import logger
 
 PACKET_HANDLERS = {}
 
@@ -38,11 +38,11 @@ async def handle_packet_event(ctx: Context, session: Session, packet_id: int,
         else:
             response_data = b""
 
-        logging.warning("Unhandled packet", type=packet_name)
+        logger.warning("Unhandled packet", type=packet_name)
         return response_data
 
-    logging.info("Handling packet", type=packet_name,
-                 length=len(packet_data))
+    logger.info("Handling packet", type=packet_name,
+                length=len(packet_data))
 
     response_data = await packet_handler(ctx, session, packet_data)
     return response_data
@@ -257,9 +257,9 @@ async def handle_update_presence_filter_request(ctx: Context, session: Session,
         presence_filter = data_reader.read_uint8()
 
     if presence_filter not in range(0, 3):
-        logging.warning("User sent an invalid presence filter",
-                        session_id=session.session_id,
-                        presence_filter=presence_filter)
+        logger.warning("User sent an invalid presence filter",
+                       session_id=session.session_id,
+                       presence_filter=presence_filter)
         return b""
 
     # TODO: set this on the user
@@ -294,9 +294,9 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
         return b""
 
     if len(message) > 1000:
-        logging.warning("User sent a message that was too long",
-                        session_id=session.session_id,
-                        message=message)
+        logger.warning("User sent a message that was too long",
+                       session_id=session.session_id,
+                       message=message)
         return serial.write_notification_packet("Your message was not sent.\n"
                                                 "(it exceeded the 1K character limit)")
 
@@ -309,9 +309,9 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
         return b""
 
     if not chats:
-        logging.warning("User sent a message to a non-existent chat",
-                        session_id=session.session_id,
-                        recipient_name=recipient_name)
+        logger.warning("User sent a message to a non-existent chat",
+                       session_id=session.session_id,
+                       recipient_name=recipient_name)
         return b""
 
     chat = chats[0]
@@ -323,9 +323,9 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
     # make sure sender is actually in the chats members
     if not any(member.account_id == session.account_id
                for member in chat_members):
-        logging.warning("User sent a message to a chat they are not in",
-                        session_id=session.session_id,
-                        chat_id=chat.chat_id, chat_name=chat.name)
+        logger.warning("User sent a message to a chat they are not in",
+                       session_id=session.session_id,
+                       chat_id=chat.chat_id, chat_name=chat.name)
         return b""
 
     account = await users_client.get_account(session.account_id)
@@ -367,7 +367,7 @@ async def handle_channel_part_request(ctx: Context, session: Session,
         return b""
 
     if len(chats) != 1:
-        # logging.error("Failed to get chat",
+        # logger.error("Failed to get chat",
         #               channel_name=channel_name,
         #               session_id=session.session_id)
         return b""
@@ -383,9 +383,9 @@ async def handle_channel_part_request(ctx: Context, session: Session,
         if member.account_id == session.account_id:
             break
     else:
-        logging.error("User attempted to leave channel they're not in",
-                      channel_name=channel_name,
-                      session_id=session.session_id)
+        logger.error("User attempted to leave channel they're not in",
+                     channel_name=channel_name,
+                     session_id=session.session_id)
         return b""
 
     chat_left = await chats_client.leave_chat(chat.chat_id,
@@ -421,15 +421,16 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
         target_id = data_reader.read_int32()
 
     users_client = UsersClient(ctx)
+    chats_client = ChatsClient(ctx)
 
     sessions = await users_client.get_all_sessions(account_id=target_id)
     if sessions is None:
         return b""
 
     if len(sessions) != 1:
-        logging.error("Failed to get session",
-                      target_id=target_id,
-                      session_id=session.session_id)
+        logger.error("Failed to get session",
+                     target_id=target_id,
+                     session_id=session.session_id)
         return b""
 
     target_session = sessions[0]
@@ -475,6 +476,7 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
 async def handle_stop_spectating_request(ctx: Context, session: Session,
                                          packet_data: bytes) -> bytes:
     users_client = UsersClient(ctx)
+    chats_client = ChatsClient(ctx)
 
     # get the user we're spectating
     host_session_id = await users_client.get_spectator_host(session.session_id)
@@ -494,6 +496,27 @@ async def handle_stop_spectating_request(ctx: Context, session: Session,
                                                 data=list(data))
     if not success:
         return b""
+
+    # leave the #spectator channel
+    chats = await chats_client.get_chats(name=f"#{host_session_id}:spectators",
+                                         instance=True)
+    if chats is None:
+        return b""
+
+    if len(chats) != 1:
+        logger.error("Failed to get chat",
+                     channel_name=f"#{host_session_id}:spectators",
+                     session_id=session.session_id)
+        return b""
+
+    chat = chats[0]
+
+    chat_left = await chats_client.leave_chat(chat.chat_id,
+                                              session.session_id)
+    if chat_left is None:
+        return b""
+
+    # TODO: do we need to alert other spectators of the channel's -1 user count?
 
     # tell everyone else we stopped spectating
     spectators = await users_client.get_spectators(host_session_id)
@@ -546,6 +569,69 @@ async def handle_spectate_frames_request(ctx: Context, session: Session,
     return b""
 
 
+@packet_handler(serial.ClientPackets.JOIN_LOBBY)
+async def handle_lobby_join_request(ctx: Context, session: Session,
+                                    packet_data: bytes) -> bytes:
+    users_client = UsersClient(ctx)
+    chats_client = ChatsClient(ctx)
+
+    chats = await chats_client.get_chats(name="#lobby", instance=False)
+    if chats is None:
+        return b""
+
+    if len(chats) != 1:
+        logger.error("Failed to get chat",
+                     channel_name="#lobby",
+                     session_id=session.session_id)
+        return b""
+
+    chat = chats[0]
+
+    account = await users_client.get_account(session.account_id)
+    if account is None:
+        return b""
+
+    member = await chats_client.join_chat(chat.chat_id,
+                                          session.session_id,
+                                          session.account_id,
+                                          account.username,
+                                          privileges=0)  # TODO
+    if member is None:
+        return b""
+
+    return b""
+
+
+@packet_handler(serial.ClientPackets.PART_LOBBY)
+async def handle_lobby_part_request(ctx: Context, session: Session,
+                                    packet_data: bytes) -> bytes:
+    chats_client = ChatsClient(ctx)
+
+    chats = await chats_client.get_chats(name="#lobby", instance=False)
+    if chats is None:
+        return b""
+
+    if len(chats) != 1:
+        logger.error("Failed to get chat",
+                     channel_name="#lobby",
+                     session_id=session.session_id)
+        return b""
+
+    chat = chats[0]
+
+    member = await chats_client.leave_chat(chat.chat_id, session.session_id)
+    if member is None:
+        return b""
+
+    return b""
+
+
+@packet_handler(serial.ClientPackets.CREATE_MATCH)
+async def handle_create_match_request(ctx: Context, session: Session,
+                                      packet_data: bytes) -> bytes:
+    ...
+
+
 @packet_handler(serial.ClientPackets.CHANNEL_JOIN)
 async def handle_channel_join_request(ctx: Context, session: Session,
                                       packet_data: bytes) -> bytes:
@@ -563,7 +649,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
         return b""
 
     if len(chats) != 1:
-        # logging.error("Failed to get chat",
+        # logger.error("Failed to get chat",
         #               channel_name=channel_name,
         #               session_id=session.session_id)
         return b""
@@ -579,9 +665,9 @@ async def handle_channel_join_request(ctx: Context, session: Session,
 
     for member in members:
         if member.account_id == session.account_id:
-            logging.error("User attempted to join channel they're already in",
-                          channel_name=channel_name,
-                          session_id=session.session_id)
+            logger.error("User attempted to join channel they're already in",
+                         channel_name=channel_name,
+                         session_id=session.session_id)
             return b""
 
     # check if user has read privileges to the channel

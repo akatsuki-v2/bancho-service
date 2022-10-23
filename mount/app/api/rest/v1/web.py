@@ -3,7 +3,6 @@ from enum import IntEnum
 from typing import Sequence
 
 from app.api.rest.context import RequestContext
-from app.common import logging
 from app.models.beatmaps import Beatmap
 from app.models.beatmapsets import Beatmapset
 from app.models.scores import Score
@@ -14,6 +13,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Query
 from fastapi import Response
+from shared_modules import logger
 
 router = APIRouter()
 
@@ -200,7 +200,7 @@ async def get_scores(
     else:
         beatmapset = None
 
-        logging.error("osu! client sent map_set_id=-1, this is not supported")
+        logger.error("osu! client sent map_set_id=-1, this is not supported")
         return Response(content=b"-1|false")
 
     # TODO: need some way to fetch_one by md5

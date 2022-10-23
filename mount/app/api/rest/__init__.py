@@ -1,26 +1,26 @@
 from __future__ import annotations
 
 from app.api.rest import middlewares
-from app.common import logging
 from app.services import http_client
 from fastapi import FastAPI
+from shared_modules import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
 def init_http_client(api: FastAPI) -> None:
     @api.on_event("startup")
     async def startup_http_client() -> None:
-        logging.info("Starting up HTTP client")
+        logger.info("Starting up HTTP client")
         service_http_client = http_client.ServiceHTTPClient()
         api.state.http_client = service_http_client
-        logging.info("HTTP client started up")
+        logger.info("HTTP client started up")
 
     @api.on_event("shutdown")
     async def shutdown_http_client() -> None:
-        logging.info("Shutting down HTTP client")
+        logger.info("Shutting down HTTP client")
         await api.state.http_client.aclose()
         del api.state.http_client
-        logging.info("HTTP client shut down")
+        logger.info("HTTP client shut down")
 
 
 def init_middlewares(api: FastAPI) -> None:

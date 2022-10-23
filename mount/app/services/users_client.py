@@ -1,7 +1,6 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.common import logging
 from app.common.context import Context
 from app.models.accounts import Account
 from app.models.presences import Presence
@@ -9,6 +8,7 @@ from app.models.queued_packets import QueuedPacket
 from app.models.sessions import Session
 from app.models.spectators import Spectator
 from app.models.stats import Stats
+from shared_modules import logger
 
 SERVICE_URL = "http://users-service"
 
@@ -32,9 +32,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to sign up",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to sign up",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Account(**response.json['data'])
@@ -45,9 +45,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get accounts",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get accounts",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Account(**rec) for rec in response.json['data']]
@@ -58,9 +58,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get account",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get account",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Account(**response.json['data'])
@@ -74,9 +74,9 @@ class UsersClient:
             json=json,
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to update account",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to update account",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Account(**response.json['data'])
@@ -87,9 +87,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts/{account_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete account",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete account",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Account(**response.json['data'])
@@ -135,9 +135,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to create stats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to create stats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Stats(**response.json['data'])
@@ -148,9 +148,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get stats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get stats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Stats(**response.json['data'])
@@ -161,9 +161,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get all account stats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get all account stats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Stats(**rec) for rec in response.json['data']]
@@ -177,9 +177,9 @@ class UsersClient:
             json=json,
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to update stats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to update stats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Stats(**response.json['data'])
@@ -190,9 +190,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/accounts/{account_id}/stats/{game_mode}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete stats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete stats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
     # sessions
@@ -209,9 +209,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to log in",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to log in",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Session(**response.json['data'])
@@ -222,9 +222,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to log out",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to log out",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Session(**response.json['data'])
@@ -235,9 +235,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get session",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get session",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Session(**response.json['data'])
@@ -253,9 +253,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get all sessions",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get all sessions",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Session(**rec) for rec in response.json['data']]
@@ -271,9 +271,9 @@ class UsersClient:
             }
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to update session",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to update session",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Session(**response.json['data'])
@@ -322,9 +322,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to create presence",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to create presence",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Presence(**response.json['data'])
@@ -335,9 +335,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get presence",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get presence",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Presence(**response.json['data'])
@@ -369,9 +369,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get all presences",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get all presences",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Presence(**rec) for rec in response.json['data']]
@@ -417,9 +417,9 @@ class UsersClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to update presence",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to update presence",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Presence(**response.json['data'])
@@ -430,9 +430,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/presences/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete presence",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete presence",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Presence(**response.json['data'])
@@ -457,9 +457,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{session_id}/queued-packets",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to dequeue all packets",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to dequeue all packets",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [QueuedPacket(**rec) for rec in response.json['data']]
@@ -475,9 +475,9 @@ class UsersClient:
                   "account_id": account_id},
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to create spectator",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to create spectator",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Spectator(**response.json['data'])
@@ -489,9 +489,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete spectator",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete spectator",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Spectator(**response.json['data'])
@@ -502,9 +502,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{host_session_id}/spectators",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get spectators",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get spectators",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Spectator(**rec) for rec in response.json['data']]
@@ -515,9 +515,9 @@ class UsersClient:
             url=f"{SERVICE_URL}/v1/sessions/{spectator_session_id}/spectating",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get spectator host",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get spectator host",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return UUID(response.json['data'])

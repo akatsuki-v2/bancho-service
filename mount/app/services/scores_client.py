@@ -1,8 +1,8 @@
-from app.common import logging
 from app.common import settings
 from app.common.context import Context
 from app.models.scores import Score
 from app.services.http_client import ServiceResponse
+from shared_modules import logger
 
 SERVICE_URL = "http://scores-service"
 
@@ -50,9 +50,9 @@ class ScoresClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to submit score",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to submit score",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Score(**response.json['data'])
@@ -63,9 +63,9 @@ class ScoresClient:
             url=f"{SERVICE_URL}/v1/scores/{score_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get score",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get score",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Score(**response.json['data'])
@@ -96,9 +96,9 @@ class ScoresClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get scores",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get scores",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Score(**rec) for rec in response.json['data']]
@@ -109,9 +109,9 @@ class ScoresClient:
             url=f"{SERVICE_URL}/v1/scores/{score_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete score",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete score",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Score(**response.json['data'])

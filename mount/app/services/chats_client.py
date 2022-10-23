@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from app.common import logging
 from app.common.context import Context
 from app.models import Status
 from app.models.chats import Chat
 from app.models.members import Member
+from shared_modules import logger
 
 SERVICE_URL = "http://chat-service"
 
@@ -31,9 +31,9 @@ class ChatsClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to create chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to create chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Chat(**response.json['data'])
@@ -44,9 +44,9 @@ class ChatsClient:
             url=f"{SERVICE_URL}/v1/chats/{chat_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Chat(**response.json['data'])
@@ -75,9 +75,9 @@ class ChatsClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get chats",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get chats",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Chat(**rec) for rec in response.json['data']]
@@ -103,9 +103,9 @@ class ChatsClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to update chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to update chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Chat(**response.json['data'])
@@ -116,9 +116,9 @@ class ChatsClient:
             url=f"{SERVICE_URL}/v1/chats/{chat_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to delete chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to delete chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Chat(**response.json['data'])
@@ -138,9 +138,9 @@ class ChatsClient:
             },
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to join chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to join chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Member(**response.json['data'])
@@ -151,9 +151,9 @@ class ChatsClient:
             url=f"{SERVICE_URL}/v1/chats/{chat_id}/members/{session_id}",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to leave chat",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to leave chat",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return Member(**response.json['data'])
@@ -164,9 +164,9 @@ class ChatsClient:
             url=f"{SERVICE_URL}/v1/chats/{chat_id}/members",
         )
         if response.status_code not in range(200, 300):
-            logging.error("Failed to get chat members",
-                          status=response.status_code,
-                          response=response.json)
+            logger.error("Failed to get chat members",
+                         status=response.status_code,
+                         response=response.json)
             return None
 
         return [Member(**rec) for rec in response.json['data']]  # TODO
