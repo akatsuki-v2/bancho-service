@@ -27,6 +27,7 @@ def init_middlewares(api: FastAPI) -> None:
     middleware_stack = [
         middlewares.add_process_time_header_to_response,
         middlewares.add_http_client_to_request,
+        middlewares.set_request_id_context,
     ]
 
     # NOTE: starlette reverses the order of the middleware stack

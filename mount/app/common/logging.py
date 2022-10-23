@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging as stdlib_logging
 import os
 from contextvars import ContextVar
+from typing import Any
 
 import structlog
 from structlog.types import EventDict
@@ -11,6 +12,14 @@ from structlog.types import WrappedLogger
 _ROOT_LOGGER = stdlib_logging.getLogger("service-root")
 
 _REQUEST_ID_CONTEXT = ContextVar("request_id")
+
+
+def set_request_id(request_id: str | None) -> None:
+    _REQUEST_ID_CONTEXT.set(request_id)
+
+
+def get_request_id() -> Any | None:
+    return _REQUEST_ID_CONTEXT.get(None)
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
