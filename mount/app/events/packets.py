@@ -4,18 +4,10 @@ from uuid import UUID
 
 from app.common import serial
 from app.common.context import Context
-from app.models.accounts import Account
-from app.models.beatmaps import Beatmap
-from app.models.chats import Chat
-from app.models.members import Member
-from app.models.presences import Presence
-from app.models.sessions import Session
-from app.models.spectators import Spectator
-from app.models.stats import Stats
-from app.services.beatmaps_client import BeatmapsClient
-from app.services.chats_client import ChatsClient
-from app.services.users_client import UsersClient
 from shared_modules import logger
+from shared_modules.api.rest.v1.chats import ChatsClient
+from shared_modules.api.rest.v1.users import UsersClient
+from shared_modules.models.sessions import Session
 
 PACKET_HANDLERS = {}
 
@@ -70,8 +62,8 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
                         ) -> bytes:
     # (?) clear user packet queue
 
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     # delete user presence
     presence = await users_client.delete_presence(session.session_id)
@@ -120,7 +112,7 @@ async def handle_logout(ctx: Context, session: Session, packet_data: bytes
 @packet_handler(serial.ClientPackets.REQUEST_SELF_STATS)
 async def handle_request_game_mode_stats(ctx: Context, session: Session,
                                          packet_data: bytes) -> bytes:
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     presence = await users_client.get_presence(session.session_id)
     if presence is None:
@@ -151,7 +143,7 @@ async def handle_request_game_mode_stats(ctx: Context, session: Session,
 @packet_handler(serial.ClientPackets.REQUEST_ALL_USER_STATS)
 async def handle_request_all_user_stats_request(ctx: Context, session: Session,
                                                 packet_data: bytes) -> bytes:
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     presences = await users_client.get_all_presences()
     if presences is None:
@@ -201,7 +193,7 @@ async def handle_change_action_request(ctx: Context, session: Session,
         # https://github.com/osuAkatsuki/bancho.py/blob/master/app/api/domains/cho.py#L188-L197
         map_id = data_reader.read_int32()
 
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     presence = await users_client.partial_update_presence(
         session.session_id,
@@ -300,8 +292,8 @@ async def handle_send_public_message_request(ctx: Context, session: Session,
         return serial.write_notification_packet("Your message was not sent.\n"
                                                 "(it exceeded the 1K character limit)")
 
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     # TODO: instance channels will need to be handled differently
     chats = await chats_client.get_chats(name=recipient_name)
@@ -359,8 +351,8 @@ async def handle_channel_part_request(ctx: Context, session: Session,
     if channel_name in CLIENT_ONLY_CHANNELS:
         return b""
 
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     chats = await chats_client.get_chats(name=channel_name)
     if chats is None:
@@ -420,8 +412,8 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
         data_reader = serial.Reader(raw_data)
         target_id = data_reader.read_int32()
 
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     sessions = await users_client.get_all_sessions(account_id=target_id)
     if sessions is None:
@@ -475,8 +467,8 @@ async def handle_start_spectating_request(ctx: Context, session: Session,
 @packet_handler(serial.ClientPackets.STOP_SPECTATING)
 async def handle_stop_spectating_request(ctx: Context, session: Session,
                                          packet_data: bytes) -> bytes:
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     # get the user we're spectating
     host_session_id = await users_client.get_spectator_host(session.session_id)
@@ -552,7 +544,7 @@ async def handle_spectate_frames_request(ctx: Context, session: Session,
 
     # TODO: validate that the data the user is sending is valid
 
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     spectators = await users_client.get_spectators(session.session_id)
     if spectators is None:
@@ -572,8 +564,8 @@ async def handle_spectate_frames_request(ctx: Context, session: Session,
 @packet_handler(serial.ClientPackets.JOIN_LOBBY)
 async def handle_lobby_join_request(ctx: Context, session: Session,
                                     packet_data: bytes) -> bytes:
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     chats = await chats_client.get_chats(name="#lobby", instance=False)
     if chats is None:
@@ -605,7 +597,7 @@ async def handle_lobby_join_request(ctx: Context, session: Session,
 @packet_handler(serial.ClientPackets.PART_LOBBY)
 async def handle_lobby_part_request(ctx: Context, session: Session,
                                     packet_data: bytes) -> bytes:
-    chats_client = ChatsClient(ctx)
+    chats_client = ChatsClient(ctx.http_client)
 
     chats = await chats_client.get_chats(name="#lobby", instance=False)
     if chats is None:
@@ -642,7 +634,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     if channel_name in CLIENT_ONLY_CHANNELS:
         return b""
 
-    chats_client = ChatsClient(ctx)
+    chats_client = ChatsClient(ctx.http_client)
 
     chats = await chats_client.get_chats(name=channel_name)
     if chats is None:
@@ -676,7 +668,7 @@ async def handle_channel_join_request(ctx: Context, session: Session,
     # check if channel is #lobby; if so, only allow if we're in mp lobby?
 
     # join the channel
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     account = await users_client.get_account(session.account_id)
     if account is None:

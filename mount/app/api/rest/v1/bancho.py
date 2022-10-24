@@ -9,18 +9,15 @@ from uuid import UUID
 from app.api.rest.context import RequestContext
 from app.common import serial
 from app.events.packets import handle_packet_event
-from app.models.presences import Presence
-from app.models.queued_packets import QueuedPacket
-from app.models.sessions import LoginData
-from app.models.sessions import Session
-from app.services.chats_client import ChatsClient
-from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Header
 from fastapi import Request
 from fastapi import Response
 from shared_modules import logger
+from shared_modules.api.rest.v1.chats import ChatsClient
+from shared_modules.api.rest.v1.users import UsersClient
+from shared_modules.models.sessions import LoginData
 
 router = APIRouter()
 
@@ -72,8 +69,8 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 
     login_data = parse_login_data(await request.body())
 
-    users_client = UsersClient(ctx)
-    chats_client = ChatsClient(ctx)
+    users_client = UsersClient(ctx.http_client)
+    chats_client = ChatsClient(ctx.http_client)
 
     # make sure this user isn't already logged in
     presences = await users_client.get_all_presences(username=login_data["username"])
@@ -314,7 +311,7 @@ async def login(request: Request, ctx: RequestContext = Depends()):
 async def bancho(request: Request,
                  session_id: UUID = Header(..., alias='osu-token'),
                  ctx: RequestContext = Depends()):
-    users_client = UsersClient(ctx)
+    users_client = UsersClient(ctx.http_client)
 
     new_session_expiry = datetime.utcnow() + timedelta(minutes=5)
 

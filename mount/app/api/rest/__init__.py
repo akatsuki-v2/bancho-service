@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from app.api.rest import middlewares
-from app.services import http_client
 from fastapi import FastAPI
+from shared_modules import http_client
 from shared_modules import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 

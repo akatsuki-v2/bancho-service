@@ -1,19 +1,18 @@
-from datetime import datetime
 from enum import IntEnum
 from typing import Sequence
 
 from app.api.rest.context import RequestContext
-from app.models.beatmaps import Beatmap
-from app.models.beatmapsets import Beatmapset
-from app.models.scores import Score
-from app.services.beatmaps_client import BeatmapsClient
-from app.services.scores_client import ScoresClient
-from app.services.users_client import UsersClient
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Query
 from fastapi import Response
 from shared_modules import logger
+from shared_modules.api.rest.v1.beatmaps import BeatmapsClient
+from shared_modules.api.rest.v1.scores import ScoresClient
+from shared_modules.api.rest.v1.users import UsersClient
+from shared_modules.models.beatmaps import Beatmap
+from shared_modules.models.beatmapsets import Beatmapset
+from shared_modules.models.scores import Score
 
 router = APIRouter()
 
@@ -185,9 +184,8 @@ async def get_scores(
     aqn_files_found: bool = Query(..., alias="a"),
     ctx: RequestContext = Depends(),
 ):
-    beatmaps_client = BeatmapsClient(ctx)
-    scores_client = ScoresClient(ctx)
-    users_client = UsersClient(ctx)
+    beatmaps_client = BeatmapsClient(ctx.http_client)
+    scores_client = ScoresClient(ctx.http_client)
 
     # TODO: validate the user's credentials (username, password)
 
