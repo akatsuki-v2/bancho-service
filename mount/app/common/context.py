@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from abc import abstractmethod
 
-from app.services.http_client import ServiceHTTPClient
+from shared_modules.http_client import ServiceHTTPClient
 
 
 class Context(ABC):
